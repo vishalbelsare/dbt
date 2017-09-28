@@ -88,6 +88,12 @@ class ValidationException(RuntimeException):
     pass
 
 
+class VersionsNotCompatibleException(ValidationException):
+
+    def __init__(self, msg=None):
+        self.msg = msg
+
+
 class NotImplementedException(Exception):
     pass
 
