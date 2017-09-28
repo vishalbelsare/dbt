@@ -263,10 +263,6 @@ def reduce_versions(*args):
     return to_return
 
 def versions_compatible(*args):
-    """
-    n-to-n comparison of compatibility. Note that this can be very slow
-    for large numbers of arguments.
-    """
     if len(args) == 1:
         return True
 
