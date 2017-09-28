@@ -56,8 +56,6 @@ class VersionRange(dbt.utils.AttrDict):
 
     def _try_combine_lower_bound_with_exact(self, lower, exact):
         comparison = lower.compare(exact)
-        less = comparison < 0
-        equal = comparison == 0
 
         if(comparison < 0 or
            (comparison == 0 and
@@ -88,8 +86,6 @@ class VersionRange(dbt.utils.AttrDict):
 
     def _try_combine_upper_bound_with_exact(self, upper, exact):
         comparison = upper.compare(exact)
-        less = comparison < 0
-        equal = comparison == 0
 
         if(comparison > 0 or
            (comparison == 0 and
