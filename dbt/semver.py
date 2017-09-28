@@ -242,9 +242,18 @@ class UnboundedVersionSpecifier(VersionSpecifier):
 
 
 def reduce_versions(*args):
-    version_specifiers = [
-        VersionSpecifier.from_version_string(version_string)
-        for version_string in args]
+    version_specifiers = []
+
+    for version in args:
+        if isinstance(version, UnboundedVersionSpecifier):
+            continue
+
+        elif isinstance(version, VersionSpecifier):
+            version_specifiers.append(version)
+
+        else:
+            version_specifiers.append(
+                VersionSpecifier.from_version_string(version))
 
     for version_specifier in version_specifiers:
         if not isinstance(version_specifier, VersionSpecifier):
@@ -271,3 +280,19 @@ def versions_compatible(*args):
         return True
     except VersionsNotCompatibleException as e:
         return False
+
+def resolve_to_specific_version(requested_range, available_versions):
+    max_version = None
+    max_version_string = None
+
+    for version_string in available_versions:
+        version = VersionSpecifier.from_version_string(version_string)
+
+        if(versions_compatible(version,
+                               requested_range.start,
+                               requested_range.end) and
+           (max_version is None or max_version.compare(version) < 0)):
+            max_version = version
+            max_version_string = version_string
+
+    return max_version_string

@@ -3,7 +3,8 @@ import itertools
 
 from dbt.exceptions import VersionsNotCompatibleException
 from dbt.semver import VersionSpecifier, UnboundedVersionSpecifier, \
-    VersionRange, reduce_versions, versions_compatible
+    VersionRange, reduce_versions, versions_compatible, \
+    resolve_to_specific_version
 
 def create_range(start_version_string, end_version_string):
     start = UnboundedVersionSpecifier()
@@ -100,3 +101,34 @@ class TestSemver(unittest.TestCase):
         self.assertInvalidVersionSet(['<=0.0.3', '>0.0.3'])
         self.assertInvalidVersionSet(['<0.0.3', '>=0.0.3'])
         self.assertInvalidVersionSet(['<0.0.3', '>0.0.3'])
+
+    def test__resolve_to_specific_version(self):
+        self.assertEqual(
+            resolve_to_specific_version(
+                create_range('>0.0.1', None),
+                ['0.0.1', '0.0.2']),
+            '0.0.2')
+
+        self.assertEqual(
+            resolve_to_specific_version(
+                create_range('>=0.0.2', None),
+                ['0.0.1', '0.0.2']),
+            '0.0.2')
+
+        self.assertEqual(
+            resolve_to_specific_version(
+                create_range('>=0.0.3', None),
+                ['0.0.1', '0.0.2']),
+            None)
+
+        self.assertEqual(
+            resolve_to_specific_version(
+                create_range('>=0.0.3', '<0.0.5'),
+                ['0.0.3', '0.0.4', '0.0.5']),
+            '0.0.4')
+
+        self.assertEqual(
+            resolve_to_specific_version(
+                create_range(None, '<=0.0.5'),
+                ['0.0.3', '0.1.4', '0.0.5']),
+            '0.0.5')
