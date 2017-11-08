@@ -181,14 +181,17 @@ class DepsTask(BaseTask):
                     raise e
 
     def run(self):
-        listing = PackageListing.create(self.project['packages'])
+        listing = PackageListing.create(self.project.get('packages', []))
         visited_listing = PackageListing.create([])
         index = dbt.clients.registry.index()
+
+        package_metadata = {}
 
         while len(listing) > 0:
             (package, version_specifiers) = listing.popitem()
 
             if package not in index:
+                # TODO
                 raise Exception('unknown package {}'.format(package))
 
             version_range = dbt.semver.reduce_versions(
@@ -214,6 +217,7 @@ class DepsTask(BaseTask):
                 logger.error(
                     '  Available versions: {}'.format(
                         ', '.join(available_versions)))
+                # TODO
                 raise Exception('bad')
 
             visited_listing.incorporate(
@@ -222,6 +226,9 @@ class DepsTask(BaseTask):
 
             target_version_metadata = dbt.clients.registry.package_version(
                 package, target_version)
+
+            # Can i do this?
+            package_metadata[package] = target_version_metadata
 
             dependencies = target_version_metadata.get('dependencies', {})
 
@@ -236,8 +243,8 @@ class DepsTask(BaseTask):
             version_info = dbt.clients.registry.package_version(
                 package, version_string)
 
+            # TODO
             import requests
-
             tar_path = os.path.realpath('{}/downloads/{}.{}.tar.gz'.format(
                 self.project['modules-path'],
                 package,
@@ -256,8 +263,16 @@ class DepsTask(BaseTask):
                     handle.write(block)
 
             import tarfile
+            # TODO
+            metadata = package_metadata[package]
+            package_name = metadata['name']
 
             with tarfile.open(tar_path, 'r') as tarball:
-                tarball.extractall(self.project['modules-path'])
+                for item in tarball.getmembers():
+                    orig_path = item.name.split(os.sep)
+                    bare_path = orig_path[1:]
+                    new_path = os.path.join(package_name, *bare_path)
+                    item.name = new_path
+                    tarball.extract(new_path, self.project['modules-path'])
 
             logger.info(" -> Success.")

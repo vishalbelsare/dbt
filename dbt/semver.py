@@ -322,6 +322,7 @@ def reduce_versions(*args):
         for version_specifier in version_specifiers:
             to_return = to_return.reduce(version_specifier.to_range())
     except VersionsNotCompatibleException as e:
+        #TODO
         raise VersionsNotCompatibleException(
             'Could not find a satisfactory version from options: {}'
             .format(str(args)))
