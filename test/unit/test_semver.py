@@ -4,7 +4,8 @@ import itertools
 from dbt.exceptions import VersionsNotCompatibleException
 from dbt.semver import VersionSpecifier, UnboundedVersionSpecifier, \
     VersionRange, reduce_versions, versions_compatible, \
-    resolve_to_specific_version
+    resolve_to_specific_version, resolve_dependency_set
+
 
 def create_range(start_version_string, end_version_string):
     start = UnboundedVersionSpecifier()
@@ -17,6 +18,7 @@ def create_range(start_version_string, end_version_string):
         end = VersionSpecifier.from_version_string(end_version_string)
 
     return VersionRange(start=start, end=end)
+
 
 class TestSemver(unittest.TestCase):
 
@@ -132,3 +134,136 @@ class TestSemver(unittest.TestCase):
                 create_range(None, '<=0.0.5'),
                 ['0.0.3', '0.1.4', '0.0.5']),
             '0.0.5')
+
+    def test__resolve_dependency_set__multiple_deps(self):
+        self.maxDiff = None
+        self.assertDictEqual(
+            resolve_dependency_set(
+                version_index={
+                    'a': {
+                        '0.0.1': {
+                            'b': ['=0.0.1'],
+                        },
+                        '0.0.2': {
+                            'b': ['=0.0.1'],
+                        },
+                        '0.0.3': {
+                            'b': ['>=0.0.1'],
+                            'c': ['=0.0.2'],
+                        }
+                    },
+                    'b': {
+                        '0.0.1': {
+                            'c': ['=0.0.2'],
+                        },
+                        '0.0.2': {
+                            'c': ['=0.0.1'],
+                        }
+                    },
+                    'c': {
+                        '0.0.1': {},
+                        '0.0.2': {}
+                    }
+                },
+                dependencies={
+                    'a': []
+                }
+            ),
+            {
+                'install': {
+                    'a': '0.0.3',
+                    'b': '0.0.1',
+                    'c': '0.0.2',
+                },
+                'tree': {
+                    'a': {
+                        'version': '0.0.3',
+                        'satisfies': ['a'],
+                        'dependencies': {
+                            'b': {
+                                'version': '0.0.1',
+                                'satisfies': ['b'],
+                                'dependencies': {
+                                    'c': {
+                                        'version': '0.0.2',
+                                        'satisfies': ['c'],
+                                        'dependencies': {}
+                                    }
+                                }
+                            },
+                            'c': {
+                                'version': '0.0.2',
+                                'satisfies': ['c'],
+                                'dependencies': {},
+                            }
+                        }
+                    }
+                }
+            })
+
+    def test__resolve_dependency_set(self):
+        self.maxDiff = None
+        self.assertDictEqual(
+            resolve_dependency_set(
+                version_index={
+                    'a': {
+                        '0.0.1': {
+                            'b': ['=0.0.1'],
+                        },
+                        '0.0.2': {
+                            'b': ['=0.0.1'],
+                        },
+                        '0.0.3': {
+                            'b': ['>=0.0.1'],
+                            'c': ['=0.0.2'],
+                        }
+                    },
+                    'b': {
+                        '0.0.1': {
+                            'c': ['=0.0.1'],
+                        },
+                        '0.0.2': {
+                            'c': ['=0.0.2'],
+                        }
+                    },
+                    'c': {
+                        '0.0.1': {},
+                        '0.0.2': {}
+                    }
+                },
+                dependencies={
+                    'a': []
+                }
+            ),
+            {
+                'install': {
+                    'a': '0.0.3',
+                    'b': '0.0.2',
+                    'c': '0.0.2',
+                },
+                'tree': {
+                    'a': {
+                        'version': '0.0.3',
+                        'satisfies': ['a'],
+                        'dependencies': {
+                            'b': {
+                                'version': '0.0.2',
+                                'satisfies': ['b'],
+                                'dependencies': {
+                                    'c': {
+                                        'version': '0.0.2',
+                                        'satisfies': ['c'],
+                                        'dependencies': {}
+                                    }
+                                }
+                            },
+                            'c': {
+                                'version': '0.0.2',
+                                'satisfies': ['c'],
+                                'dependencies': {}
+                            }
+
+                        }
+                    }
+                }
+            })

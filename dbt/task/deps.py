@@ -4,12 +4,66 @@ import re
 
 import dbt.clients.git
 import dbt.clients.system
+import dbt.clients.registry
 import dbt.project as project
 
 from dbt.compat import basestring
 from dbt.logger import GLOBAL_LOGGER as logger
+from dbt.semver import VersionSpecifier, UnboundedVersionSpecifier
+from dbt.utils import AttrDict
 
 from dbt.task.base_task import BaseTask
+
+
+class PackageListing(AttrDict):
+
+    @classmethod
+    def _convert_version_strings(cls, version_strings):
+        if not isinstance(version_strings, list):
+            version_strings = [version_strings]
+
+        return [
+            VersionSpecifier.from_version_string(version_string)
+            for version_string in version_strings
+        ]
+
+    def incorporate(self, package, version_specifiers=None):
+        if version_specifiers is None:
+            version_specifiers = [UnboundedVersionSpecifier()]
+        elif not isinstance(version_specifiers, list):
+            # error
+            raise Exception('bad')
+        else:
+            for version_specifier in version_specifiers:
+                if not isinstance(version_specifier, VersionSpecifier):
+                    # error
+                    raise Exception('bad')
+
+        if package not in self:
+            self[package] = version_specifiers
+
+        else:
+            self[package] = self[package] + version_specifiers
+
+    @classmethod
+    def create(cls, parsed_yaml):
+        to_return = cls({})
+
+        if not isinstance(parsed_yaml, list):
+            # error
+            raise Exception('bad')
+
+        if isinstance(parsed_yaml, list):
+            for package in parsed_yaml:
+                if isinstance(package, basestring):
+                    to_return.incorporate(package)
+                elif isinstance(package, dict):
+                    (package, version_strings) = package.popitem()
+                    to_return.incorporate(
+                        package,
+                        cls._convert_version_strings(version_strings))
+
+        return to_return
 
 
 def folder_from_git_remote(remote_spec):
@@ -127,6 +181,83 @@ class DepsTask(BaseTask):
                     raise e
 
     def run(self):
-        dbt.clients.system.make_directory(self.project['modules-path'])
+        listing = PackageListing.create(self.project['packages'])
+        visited_listing = PackageListing.create([])
+        index = dbt.clients.registry.index()
 
-        self.__pull_deps_recursive(self.project['repositories'])
+        while len(listing) > 0:
+            (package, version_specifiers) = listing.popitem()
+
+            if package not in index:
+                raise Exception('unknown package {}'.format(package))
+
+            version_range = dbt.semver.reduce_versions(
+                *version_specifiers)
+
+            available_versions = dbt.clients.registry.get_available_versions(
+                package)
+
+            # for now, pick a version and then recurse. later on,
+            # we'll probably want to traverse multiple options
+            # so we can match packages. not going to make a difference
+            # right now.
+            target_version = dbt.semver.resolve_to_specific_version(
+                version_range,
+                available_versions)
+
+            if target_version is None:
+                logger.error(
+                    'Could not find a matching version for package {}!'
+                    .format(package))
+                logger.error(
+                    '  Requested range: {}'.format(version_range))
+                logger.error(
+                    '  Available versions: {}'.format(
+                        ', '.join(available_versions)))
+                raise Exception('bad')
+
+            visited_listing.incorporate(
+                package,
+                [VersionSpecifier.from_version_string(target_version)])
+
+            target_version_metadata = dbt.clients.registry.package_version(
+                package, target_version)
+
+            dependencies = target_version_metadata.get('dependencies', {})
+
+            for package, versions in dependencies.items():
+                listing.incorporate(
+                    package,
+                    [VersionSpecifier.from_version_string(version)
+                     for version in versions])
+
+        for package, version_specifiers in visited_listing.items():
+            version_string = version_specifiers[0].to_version_string(True)
+            version_info = dbt.clients.registry.package_version(
+                package, version_string)
+
+            import requests
+
+            tar_path = os.path.realpath('{}/downloads/{}.{}.tar.gz'.format(
+                self.project['modules-path'],
+                package,
+                version_string))
+
+            logger.info("Pulling {}@{} from hub.getdbt.com...".format(
+                package, version_string))
+
+            dbt.clients.system.make_directory(
+                os.path.dirname(tar_path))
+
+            response = requests.get(version_info.get('downloads').get('tarball'))
+
+            with open(tar_path, 'wb') as handle:
+                for block in response.iter_content(1024*64):
+                    handle.write(block)
+
+            import tarfile
+
+            with tarfile.open(tar_path, 'r') as tarball:
+                tarball.extractall(self.project['modules-path'])
+
+            logger.info(" -> Success.")

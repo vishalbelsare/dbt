@@ -1,20 +1,33 @@
 import requests
 
 
-def index():
-    return requests.get('http://127.0.0.1:4567/api/v1/index.json').json()
+DEFAULT_REGISTRY_BASE_URL = 'http://127.0.0.1:4567/'
 
 
-def package(name):
+def _get_url(url, registry_base_url=None):
+    if registry_base_url is None:
+        registry_base_url = DEFAULT_REGISTRY_BASE_URL
+
+    return '{}{}'.format(registry_base_url, url)
+
+
+def index(registry_base_url=None):
     return requests.get(
-        'http://127.0.0.1:4567/api/v1/{}.json'
-        .format(name)).json()
+        _get_url('api/v1/index.json',
+                 registry_base_url)).json()
 
 
-def package_version(name, version):
+def package(name, registry_base_url=None):
     return requests.get(
-        'http://127.0.0.1:4567/api/v1/{}/{}.json'
-        .format(name, version)).json()
+        _get_url('api/v1/{}.json'.format(name),
+                 registry_base_url)).json()
+
+
+def package_version(name, version, registry_base_url=None):
+    url = _get_url('api/v1/{}/{}.json'.format(name, version))
+    response = requests.get(url, registry_base_url)
+
+    return response.json()
 
 
 def get_available_versions(name):
