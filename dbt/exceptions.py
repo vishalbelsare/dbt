@@ -235,7 +235,7 @@ def package_not_found(package_name):
 
 
 def package_version_not_found(package_name, version_range, available_versions):
-    base_msg = ('Could not find a matching version for package {}!\n'
+    base_msg = ('Could not find a matching version for package {}\n'
                 '  Requested range: {}\n'
                 '  Available versions: {}')
 
