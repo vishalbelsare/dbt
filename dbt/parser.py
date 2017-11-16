@@ -471,7 +471,7 @@ def parse_schema_tests(tests, root_project, projects, macros=None):
 
                 for config in configs:
                     package_name = test.get('package_name')
-                    test_namespace = 'dbt'
+                    test_namespace = None
                     split = test_type.split('.')
 
                     if len(split) > 1:
@@ -551,7 +551,11 @@ def parse_schema_test(test_base, model_name, test_config, test_namespace,
     # sort the dict so the keys are rendered deterministically (for tests)
     kwargs = [as_kwarg(key, test_args[key]) for key in sorted(test_args)]
 
-    macro_name = "{}.test_{}".format(test_namespace, test_type)
+    if test_namespace is None:
+        macro_name = "test_{}".format(test_type)
+    else:
+        macro_name = "{}.test_{}".format(test_namespace, test_type)
+
     raw_sql = "{{{{ {macro}(model=ref('{model}'), {kwargs}) }}}}".format(**{
         'model': model_name,
         'macro': macro_name,
