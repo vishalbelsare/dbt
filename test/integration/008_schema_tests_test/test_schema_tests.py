@@ -117,7 +117,6 @@ class TestCustomSchemaTests(DBTIntegrationTest):
         self.run_dbt()
         test_results = self.run_schema_validations()
 
-        rejected_values_table_copy_color__orange__purple
         expected_failures = ['unique', 'every_value_is_blue']
 
         for result in test_results:
