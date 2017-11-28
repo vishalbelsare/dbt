@@ -3,6 +3,7 @@ import os
 import re
 import hashlib
 import collections
+import agate
 
 import dbt.exceptions
 import dbt.flags
@@ -207,7 +208,7 @@ def parse_node(node, node_path, root_project_config, package_project_config,
         root_project_config, package_project_config, fqn)
 
     node['unique_id'] = node_path
-    node['empty'] = (len(node.get('raw_sql').strip()) == 0)
+    node['empty'] = ('raw_sql' in node and len(node['raw_sql'].strip()) == 0)
     node['fqn'] = fqn
     node['tags'] = tags
     node['config_reference'] = config
@@ -701,3 +702,40 @@ def parse_archives_from_project(project):
             })
 
     return archives
+
+
+def parse_seed_file(path, package_name):
+    logger.debug("Parsing {}".format(path))
+    to_return = {}
+    table_name = os.path.basename(path)[:-4]
+    return {
+        'unique_id': get_path(NodeType.Seed, package_name, table_name),
+        'path': path,
+        'table_name': table_name,
+        'resource_type': NodeType.Seed,
+        'package_name': package_name,
+        'depends_on': {'nodes': []},
+        'csv_table': agate.Table.from_csv(path),
+    }
+    return node
+
+
+def load_and_parse_seeds(package_name, root_project, all_projects, root_dir,
+                         relative_dirs, resource_type, tags=None, macros=None):
+    extension = "[!.#~]*.csv"
+    if dbt.flags.STRICT_MODE:
+        dbt.contracts.project.validate_list(all_projects)
+    file_matches = dbt.clients.system.find_matching(
+        root_dir,
+        relative_dirs,
+        extension)
+    result = {}
+    for file_match in file_matches:
+        node = parse_seed_file(file_match['absolute_path'], package_name)
+        node_path = node['unique_id']
+        parsed = parse_node(node, node_path, root_project,
+                            all_projects.get(package_name),
+                            all_projects, tags=tags, macros=macros)
+        # parsed['empty'] = False
+        result[node_path] = parsed
+    return result
