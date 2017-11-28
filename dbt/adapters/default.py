@@ -94,6 +94,23 @@ class DefaultAdapter(object):
         raise dbt.exceptions.NotImplementedException(
             '`cancel_connection` is not implemented for this adapter!')
 
+    @classmethod
+    def create_table(cls, profile, schema, table_name, agate_table):
+        raise dbt.exceptions.NotImplementedException(
+            '`create_table` is not implemented for this adapter!')
+
+    @classmethod
+    def load_csv(cls, profile, schema, table_name, agate_table):
+        raise dbt.exceptions.NotImplementedException(
+            '`load_csv` is not implemented for this adapter!')
+
+    @classmethod
+    def convert_agate_type(cls, agate_type):
+        for cls, sql in cls.agate_type_conversions:
+            if isinstance(agate_type, cls):
+                return sql
+        return cls.agate_default_type
+
     ###
     # FUNCTIONS THAT SHOULD BE ABSTRACT
     ###
@@ -501,7 +518,8 @@ class DefaultAdapter(object):
         return connection
 
     @classmethod
-    def add_query(cls, profile, sql, model_name=None, auto_begin=True):
+    def add_query(cls, profile, sql, model_name=None, auto_begin=True,
+                  bindings=None):
         connection = cls.get_connection(profile, model_name)
         connection_name = connection.get('name')
 
@@ -516,7 +534,7 @@ class DefaultAdapter(object):
             pre = time.time()
 
             cursor = connection.get('handle').cursor()
-            cursor.execute(sql)
+            cursor.execute(sql, (bindings or ()))
 
             logger.debug("SQL status: %s in %0.2f seconds",
                          cls.get_status(cursor), (time.time() - pre))

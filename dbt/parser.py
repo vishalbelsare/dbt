@@ -704,18 +704,19 @@ def parse_archives_from_project(project):
     return archives
 
 
-def parse_seed_file(path, package_name):
-    logger.debug("Parsing {}".format(path))
+def parse_seed_file(file_match, package_name):
+    abspath = file_match['absolute_path']
+    logger.debug("Parsing {}".format(abspath))
     to_return = {}
-    table_name = os.path.basename(path)[:-4]
+    table_name = os.path.basename(abspath)[:-4]
     return {
         'unique_id': get_path(NodeType.Seed, package_name, table_name),
-        'path': path,
+        'path': file_match['relative_path'],
         'table_name': table_name,
         'resource_type': NodeType.Seed,
         'package_name': package_name,
         'depends_on': {'nodes': []},
-        'csv_table': agate.Table.from_csv(path),
+        'agate_table': agate.Table.from_csv(abspath),
     }
     return node
 
@@ -731,7 +732,7 @@ def load_and_parse_seeds(package_name, root_project, all_projects, root_dir,
         extension)
     result = {}
     for file_match in file_matches:
-        node = parse_seed_file(file_match['absolute_path'], package_name)
+        node = parse_seed_file(file_match, package_name)
         node_path = node['unique_id']
         parsed = parse_node(node, node_path, root_project,
                             all_projects.get(package_name),

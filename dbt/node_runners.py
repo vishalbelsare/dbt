@@ -263,6 +263,14 @@ class CompileRunner(BaseRunner):
             "already_exists": call_table_exists,
         }
 
+    @classmethod
+    def create_schemas(cls, project, adapter, flat_graph):
+        profile = project.run_environment()
+        required_schemas = cls.get_model_schemas(flat_graph)
+        existing_schemas = set(adapter.get_existing_schemas(profile))
+        for schema in (required_schemas - existing_schemas):
+            adapter.create_schema(profile, schema)
+
 
 class ModelRunner(CompileRunner):
 
@@ -313,15 +321,6 @@ class ModelRunner(CompileRunner):
         except dbt.exceptions.RuntimeException as e:
             logger.info("Database error while running {}".format(hook_type))
             raise
-
-    @classmethod
-    def create_schemas(cls, project, adapter, flat_graph):
-        profile = project.run_environment()
-        required_schemas = cls.get_model_schemas(flat_graph)
-        existing_schemas = set(adapter.get_existing_schemas(profile))
-
-        for schema in (required_schemas - existing_schemas):
-            adapter.create_schema(profile, schema)
 
     @classmethod
     def before_run(cls, project, adapter, flat_graph):
@@ -456,3 +455,40 @@ class ArchiveRunner(ModelRunner):
     def print_result_line(self, result):
         dbt.ui.printer.print_archive_result_line(result, self.node_index,
                                                  self.num_nodes)
+
+
+class SeedRunner(CompileRunner):
+
+    def describe_node(self):
+        table_name = self.node["table_name"]
+        return "seed {}".format(table_name)
+
+    @classmethod
+    def before_run(cls, project, adapter, flat_graph):
+        cls.create_schemas(project, adapter, flat_graph)
+
+    def before_execute(self):
+        description = self.describe_node()
+        dbt.ui.printer.print_start_line(description, self.node_index,
+                                        self.num_nodes)
+
+    def execute(self, compiled_node, existing, flat_graph):
+        existing_tables = [k for k, v in existing.items() if v == "table"]
+        table_name = compiled_node["table_name"]
+        existing_type = existing.get(table_name)
+        if existing_type and existing_type != "table":
+            raise Exception("table is already a view")  # FIXME better exception
+        adapter = self.adapter  # type: dbt.adapters.default.DefaultAdapter
+        schema = compiled_node["schema"]
+        table = compiled_node["agate_table"]
+        if existing_type:
+            if dbt.flags.NON_DESTRUCTIVE:
+                adapter.truncate(self.profile, schema, table_name)
+            else:
+                adapter.drop_table(self.profile, schema, table_name, None)
+                adapter.create_table(self.profile, schema, table_name, table)
+        else:
+            adapter.create_table(self.profile, schema, table_name, table)
+        adapter.load_csv(self.profile, schema, table_name, table)
+        adapter.commit_if_has_connection(self.profile, None)
+        return RunModelResult(compiled_node)

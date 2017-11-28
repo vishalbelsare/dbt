@@ -1,4 +1,5 @@
 import psycopg2
+import agate
 
 from contextlib import contextmanager
 
@@ -10,6 +11,15 @@ from dbt.logger import GLOBAL_LOGGER as logger
 
 
 class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
+
+    agate_type_conversions = [
+        (agate.Text, "text"),
+        (agate.Number, "numeric"),
+        (agate.Boolean, "boolean"),
+        (agate.DateTime, "timestamp without time zone"),
+        (agate.Date, "date"),
+    ]
+    agate_default_type = "text"
 
     @classmethod
     @contextmanager
@@ -165,3 +175,23 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
         res = cursor.fetchone()
 
         logger.debug("Cancel query '{}': {}".format(connection_name, res))
+
+    @classmethod
+    def create_table(cls, profile, schema, table_name, agate_table):
+        col_sqls = []
+        for idx, col_name in enumerate(agate_table.column_names):
+            col_type = agate_table.column_types[idx]
+            converted_type = cls.convert_agate_type(col_type)
+            col_sqls.append('"{}" {}'.format(col_name, converted_type))
+        sql = 'create table "{}"."{}" ({})'.format(schema, table_name,
+                                                   ", ".join(col_sqls))
+        return cls.add_query(profile, sql)
+
+    @classmethod
+    def load_csv(cls, profile, schema, table_name, agate_table):
+        cols_sql = ", ".join(agate_table.column_names)
+        placeholders = ", ".join("%s" for _ in agate_table.column_names)
+        sql = ('insert into "{}"."{}" ({}) values ({})'
+               .format(schema, table_name, cols_sql, placeholders))
+        for row in agate_table.rows:
+            cls.add_query(profile, sql, bindings=row)
