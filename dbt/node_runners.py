@@ -205,14 +205,14 @@ class CompileRunner(BaseRunner):
         return RunModelResult(compiled_node)
 
     def compile(self, flat_graph):
-        return self.compile_node(self.adapter, self.project, self.node,
-                                 flat_graph)
+        return self._compile_node(self.adapter, self.project, self.node,
+                                  flat_graph)
 
     @classmethod
-    def compile_node(cls, adapter, project, node, flat_graph):
+    def _compile_node(cls, adapter, project, node, flat_graph):
         compiler = dbt.compilation.Compiler(project)
         node = compiler.compile_node(node, flat_graph)
-        node = cls.inject_runtime_config(adapter, project, node)
+        node = cls._inject_runtime_config(adapter, project, node)
 
         if(node['injected_sql'] is not None and
            not (dbt.utils.is_type(node, NodeType.Archive))):
@@ -230,15 +230,15 @@ class CompileRunner(BaseRunner):
         return node
 
     @classmethod
-    def inject_runtime_config(cls, adapter, project, node):
+    def _inject_runtime_config(cls, adapter, project, node):
         wrapped_sql = node.get('wrapped_sql')
-        context = cls.node_context(adapter, project, node)
+        context = cls._node_context(adapter, project, node)
         sql = dbt.clients.jinja.get_rendered(wrapped_sql, context)
         node['wrapped_sql'] = sql
         return node
 
     @classmethod
-    def node_context(cls, adapter, project, node):
+    def _node_context(cls, adapter, project, node):
         profile = project.run_environment()
 
         def call_get_columns_in_table(schema_name, table_name):
@@ -295,7 +295,7 @@ class ModelRunner(CompileRunner):
 
         compiled_hooks = []
         for hook in hooks:
-            compiled = cls.compile_node(adapter, project, hook, flat_graph)
+            compiled = cls._compile_node(adapter, project, hook, flat_graph)
             model_name = compiled.get('name')
             statement = compiled['wrapped_sql']
 
@@ -492,3 +492,6 @@ class SeedRunner(CompileRunner):
         adapter.load_csv(self.profile, schema, table_name, table)
         adapter.commit_if_has_connection(self.profile, None)
         return RunModelResult(compiled_node)
+
+    def compile(self, flat_graph):
+        return self.node
