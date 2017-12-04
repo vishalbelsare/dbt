@@ -188,12 +188,14 @@ class DBTIntegrationTest(unittest.TestCase):
 
     def use_default_project(self):
         # create a dbt_project.yml
+        data_paths = getattr(self, 'seeds', None)
         base_project_config = {
             'name': 'test',
             'version': '1.0',
             'test-paths': [],
             'source-paths': [self.models],
-            'profile': 'test'
+            'profile': 'test',
+            'data-paths': [data_paths] if data_paths else [],
         }
 
         project_config = {}

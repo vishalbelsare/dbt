@@ -15,12 +15,16 @@ class TestSimpleCopy(DBTIntegrationTest):
     def models(self):
         return "test/integration/001_simple_copy_test/models"
 
+    @property
+    def seeds(self):
+        return "test/integration/001_simple_copy_test/data"
+
     @attr(type='postgres')
     def test__postgres__simple_copy(self):
         self.use_default_project()
         self.use_profile('postgres')
-        self.run_sql_file("test/integration/001_simple_copy_test/seed.sql")
 
+        self.run_dbt(["seed"])
         self.run_dbt()
 
         self.assertTablesEqual("seed","view")
@@ -39,8 +43,8 @@ class TestSimpleCopy(DBTIntegrationTest):
     def test__postgres__dbt_doesnt_run_empty_models(self):
         self.use_default_project()
         self.use_profile('postgres')
-        self.run_sql_file("test/integration/001_simple_copy_test/seed.sql")
 
+        self.run_dbt(["seed"])
         self.run_dbt()
 
         models = self.get_models_in_schema()
@@ -52,8 +56,8 @@ class TestSimpleCopy(DBTIntegrationTest):
     def test__snowflake__simple_copy(self):
         self.use_default_project()
         self.use_profile('snowflake')
-        self.run_sql_file("test/integration/001_simple_copy_test/seed.sql")
 
+        self.run_dbt(["seed"])
         self.run_dbt()
 
         self.assertTablesEqual("seed","view")
