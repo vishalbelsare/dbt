@@ -472,14 +472,16 @@ class SeedRunner(CompileRunner):
         dbt.ui.printer.print_start_line(description, self.node_index,
                                         self.num_nodes)
 
-    def execute(self, compiled_node, existing, flat_graph):
+    def execute(self, compiled_node, existing_, flat_graph):
+        # In testing, existing_ was not correctly set to the existing things
+        schema = compiled_node["schema"]
+        adapter = self.adapter  # type: dbt.adapters.default.DefaultAdapter
+        existing = adapter.query_for_existing(self.profile, schema)
         existing_tables = [k for k, v in existing.items() if v == "table"]
         table_name = compiled_node["table_name"]
         existing_type = existing.get(table_name)
         if existing_type and existing_type != "table":
             raise Exception("table is already a view")  # FIXME better exception
-        adapter = self.adapter  # type: dbt.adapters.default.DefaultAdapter
-        schema = compiled_node["schema"]
         table = compiled_node["agate_table"]
         if existing_type:
             if dbt.flags.NON_DESTRUCTIVE:

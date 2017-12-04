@@ -709,15 +709,22 @@ def parse_seed_file(file_match, package_name):
     logger.debug("Parsing {}".format(abspath))
     to_return = {}
     table_name = os.path.basename(abspath)[:-4]
-    return {
+    node = {
         'unique_id': get_path(NodeType.Seed, package_name, table_name),
         'path': file_match['relative_path'],
         'table_name': table_name,
+        'name': table_name,
         'resource_type': NodeType.Seed,
         'package_name': package_name,
         'depends_on': {'nodes': []},
-        'agate_table': agate.Table.from_csv(abspath),
+        'original_file_path': os.path.join(file_match.get('searched_path'),
+                                           file_match.get('relative_path')),
     }
+    try:
+        table = agate.Table.from_csv(abspath)
+    except ValueError as e:
+        dbt.exceptions.raise_compiler_error(str(e), node)
+    node['agate_table'] = table
     return node
 
 
