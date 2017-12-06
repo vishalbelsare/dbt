@@ -484,11 +484,11 @@ class SeedRunner(CompileRunner):
             raise Exception("table is already a view")  # FIXME better exception
         table = compiled_node["agate_table"]
         if existing_type:
-            if dbt.flags.NON_DESTRUCTIVE:
-                adapter.truncate(self.profile, schema, table_name)
-            else:
+            if dbt.flags.FULL_REFRESH:
                 adapter.drop_table(self.profile, schema, table_name, None)
                 adapter.create_table(self.profile, schema, table_name, table)
+            else:
+                adapter.truncate(self.profile, schema, table_name)
         else:
             adapter.create_table(self.profile, schema, table_name, table)
         adapter.load_csv(self.profile, schema, table_name, table)

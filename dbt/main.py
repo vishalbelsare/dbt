@@ -232,7 +232,9 @@ def invoke_dbt(parsed):
             return None
 
     flags.NON_DESTRUCTIVE = getattr(proj.args, 'non_destructive', False)
-    flags.FULL_REFRESH = getattr(proj.args, 'full_refresh', False)
+    refresh_flags = ['full_refresh', 'drop_existing']
+    if any(getattr(proj.args, attr, False) for attr in refresh_flags):
+        flags.FULL_REFRESH = True
 
     logger.debug("running dbt with arguments %s", parsed)
 
@@ -375,13 +377,18 @@ def parse_args(args):
             fully-recalculate the incremental table from the model definition.
             """)
 
-    sub = subs.add_parser('seed', parents=[base_subparser])
-    sub.add_argument(
+    seed_sub = subs.add_parser('seed', parents=[base_subparser])
+    seed_sub.add_argument(
         '--drop-existing',
         action='store_true',
-        help="Drop existing seed tables and recreate them"
+        help='(DEPRECATED) Use --full-refresh instead.'
     )
-    sub.set_defaults(cls=seed_task.SeedTask, which='seed')
+    seed_sub.add_argument(
+        '--full-refresh',
+        action='store_true',
+        help='Drop existing seed tables and recreate them'
+    )
+    seed_sub.set_defaults(cls=seed_task.SeedTask, which='seed')
 
     sub = subs.add_parser('test', parents=[base_subparser])
     sub.add_argument(
