@@ -186,21 +186,20 @@ class DBTIntegrationTest(unittest.TestCase):
             self.run_sql('DROP SCHEMA IF EXISTS "{}" CASCADE'.format(self.unique_schema()))
             self.run_sql('CREATE SCHEMA "{}"'.format(self.unique_schema()))
 
-    def use_default_project(self):
+    def use_default_project(self, overrides=None):
         # create a dbt_project.yml
-        data_paths = getattr(self, 'seeds', None)
         base_project_config = {
             'name': 'test',
             'version': '1.0',
             'test-paths': [],
             'source-paths': [self.models],
             'profile': 'test',
-            'data-paths': [data_paths] if data_paths else [],
         }
 
         project_config = {}
         project_config.update(base_project_config)
         project_config.update(self.project_config)
+        project_config.update(overrides or {})
 
         with open("dbt_project.yml", 'w') as f:
             yaml.safe_dump(project_config, f, default_flow_style=True)
