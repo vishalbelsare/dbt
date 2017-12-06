@@ -366,7 +366,8 @@ class BigQueryAdapter(PostgresAdapter):
                                               dbt.ui.printer.COLOR_FG_YELLOW)
 
     @classmethod
-    def add_query(cls, profile, sql, model_name=None, auto_begin=True):
+    def add_query(cls, profile, sql, model_name=None, auto_begin=True,
+                  bindings=None):
         if model_name in ['on-run-start', 'on-run-end']:
             cls.warning_on_hooks(model_name)
         else:

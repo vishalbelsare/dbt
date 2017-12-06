@@ -44,7 +44,7 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
             raise dbt.exceptions.RuntimeException(e)
 
     @staticmethod
-    def escape_identifier(ident):
+    def quote(ident):
         return '"{}"'.format(ident.replace('"', '""'))
 
     @classmethod
@@ -193,12 +193,30 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
 
     @classmethod
     def load_csv(cls, profile, schema, table_name, agate_table):
-        cols_sql = ", ".join(cls.escape_identifier(c)
-                             for c in agate_table.column_names)
+        cols_sql = ", ".join(cls.quote(c) for c in agate_table.column_names)
         placeholders = ", ".join("%s" for _ in agate_table.column_names)
         sql = ('insert into {}.{} ({}) values ({})'
-               .format(cls.escape_identifier(schema),
-                       cls.escape_identifier(table_name),
+               .format(cls.quote(schema),
+                       cls.quote(table_name),
                        cols_sql, placeholders))
         for row in agate_table.rows:
             cls.add_query(profile, sql, bindings=row)
+
+    @classmethod
+    def create_seed_table(cls, profile, schema, table_name, agate_table,
+                          full_refresh=False):
+        existing = cls.query_for_existing(profile, schema)
+        existing_type = existing.get(table_name)
+        if existing_type and existing_type != "table":
+            raise dbt.exceptions.RuntimeException(
+                "Cannot seed to '{}', it is a view".format(table_name))
+        if existing_type:
+            if full_refresh:
+                cls.drop_table(profile, schema, table_name, None)
+                cls.create_table(profile, schema, table_name, agate_table)
+            else:
+                cls.truncate(profile, schema, table_name)
+        else:
+            cls.create_table(profile, schema, table_name, agate_table)
+        cls.load_csv(profile, schema, table_name, agate_table)
+        cls.commit_if_has_connection(profile, None)
