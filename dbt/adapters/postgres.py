@@ -43,6 +43,10 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
             cls.release_connection(profile, connection_name)
             raise dbt.exceptions.RuntimeException(e)
 
+    @staticmethod
+    def escape_identifier(ident):
+        return '"{}"'.format(ident.replace('"', '""'))
+
     @classmethod
     def type(cls):
         return 'postgres'
@@ -189,9 +193,12 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
 
     @classmethod
     def load_csv(cls, profile, schema, table_name, agate_table):
-        cols_sql = ", ".join(agate_table.column_names)
+        cols_sql = ", ".join(cls.escape_identifier(c)
+                             for c in agate_table.column_names)
         placeholders = ", ".join("%s" for _ in agate_table.column_names)
-        sql = ('insert into "{}"."{}" ({}) values ({})'
-               .format(schema, table_name, cols_sql, placeholders))
+        sql = ('insert into {}.{} ({}) values ({})'
+               .format(cls.escape_identifier(schema),
+                       cls.escape_identifier(table_name),
+                       cols_sql, placeholders))
         for row in agate_table.rows:
             cls.add_query(profile, sql, bindings=row)
