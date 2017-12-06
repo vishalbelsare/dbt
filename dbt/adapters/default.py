@@ -615,9 +615,25 @@ class DefaultAdapter(object):
 
     @classmethod
     def quote(cls, identifier):
-        return '"{}"'.format(identifier)
+        return '"{}"'.format(identifier.replace('"', '""'))
 
     @classmethod
     def quote_schema_and_table(cls, profile, schema, table, model_name=None):
         return '{}.{}'.format(cls.quote(schema),
                               cls.quote(table))
+
+    @classmethod
+    def handle_csv_table(cls, profile, schema, table_name, agate_table,
+                         full_refresh=False):
+        existing = cls.query_for_existing(profile, schema)
+        existing_type = existing.get(table_name)
+        if existing_type and existing_type != "table":
+            raise dbt.exceptions.RuntimeException(
+                "Cannot seed to '{}', it is a view".format(table_name))
+        if existing_type:
+            cls.reset_csv_table(profile, schema, table_name, agate_table,
+                                full_refresh=full_refresh)
+        else:
+            cls.create_csv_table(profile, schema, table_name, agate_table)
+        cls.load_csv_rows(profile, schema, table_name, agate_table)
+        cls.commit_if_has_connection(profile, None)

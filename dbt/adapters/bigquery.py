@@ -15,9 +15,11 @@ import google.auth
 import google.oauth2
 import google.cloud.exceptions
 import google.cloud.bigquery
+import agate
 
 import time
 import uuid
+import six
 
 
 class BigQueryAdapter(PostgresAdapter):
@@ -390,3 +392,44 @@ class BigQueryAdapter(PostgresAdapter):
         return '{}.{}.{}'.format(cls.quote(project),
                                  cls.quote(schema),
                                  cls.quote(table))
+
+    agate_type_conversions = [
+        (agate.Text, "STRING"),
+        (agate.Number, "FLOAT64"),
+        (agate.Boolean, "BOOL"),
+        (agate.DateTime, "DATETIME"),
+        (agate.Date, "DATE"),
+    ]
+    agate_default_type = "STRING"
+
+    @classmethod
+    def _agate_to_schema(cls, agate_table):
+        bq_schema = []
+        for idx, col_name in enumerate(agate_table.column_names):
+            col_type = agate_table.column_types[idx]
+            type_ = cls.convert_agate_type(col_type)
+            bq_schema.append(google.cloud.bigquery.SchemaField(col_name, type_))
+        return bq_schema
+
+    @classmethod
+    def create_csv_table(cls, profile, schema, table_name, agate_table):
+        pass
+
+    @classmethod
+    def reset_csv_table(cls, profile, schema, table_name, agate_table,
+                        full_refresh=False):
+        cls.drop(profile, schema, table_name, "table")
+
+    @classmethod
+    def load_csv_rows(cls, profile, schema, table_name, agate_table):
+        bq_schema = cls._agate_to_schema(agate_table)
+        dataset = cls.get_dataset(profile, schema, None)
+        table = dataset.table(table_name, schema=bq_schema)
+        conn = cls.get_connection(profile, None)
+        client = conn.get('handle')
+        in_mem_buffer = six.StringIO()
+        agate_table.to_csv(in_mem_buffer)
+        job = table.upload_from_file(in_mem_buffer, "CSV", rewind=True,
+                                     client=client, skip_leading_rows=1)
+        with cls.exception_handler(profile, "LOAD TABLE"):
+            cls.poll_until_job_completes(job, cls.get_timeout(conn))

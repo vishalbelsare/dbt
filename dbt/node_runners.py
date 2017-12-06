@@ -476,8 +476,8 @@ class SeedRunner(CompileRunner):
         schema = compiled_node["schema"]
         table_name = compiled_node["table_name"]
         table = compiled_node["agate_table"]
-        self.adapter.create_seed_table(self.profile, schema, table_name, table,
-                                       full_refresh=dbt.flags.FULL_REFRESH)
+        self.adapter.handle_csv_table(self.profile, schema, table_name, table,
+                                      full_refresh=dbt.flags.FULL_REFRESH)
         return RunModelResult(compiled_node)
 
     def compile(self, flat_graph):

@@ -12,15 +12,6 @@ from dbt.logger import GLOBAL_LOGGER as logger
 
 class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
 
-    agate_type_conversions = [
-        (agate.Text, "text"),
-        (agate.Number, "numeric"),
-        (agate.Boolean, "boolean"),
-        (agate.DateTime, "timestamp without time zone"),
-        (agate.Date, "date"),
-    ]
-    agate_default_type = "text"
-
     @classmethod
     @contextmanager
     def exception_handler(cls, profile, sql, model_name=None,
@@ -42,10 +33,6 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
             logger.debug("Rolling back transaction.")
             cls.release_connection(profile, connection_name)
             raise dbt.exceptions.RuntimeException(e)
-
-    @staticmethod
-    def quote(ident):
-        return '"{}"'.format(ident.replace('"', '""'))
 
     @classmethod
     def type(cls):
@@ -180,19 +167,37 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
 
         logger.debug("Cancel query '{}': {}".format(connection_name, res))
 
+    agate_type_conversions = [
+        (agate.Text, "text"),
+        (agate.Number, "numeric"),
+        (agate.Boolean, "boolean"),
+        (agate.DateTime, "timestamp without time zone"),
+        (agate.Date, "date"),
+    ]
+    agate_default_type = "text"
+
     @classmethod
-    def create_table(cls, profile, schema, table_name, agate_table):
+    def create_csv_table(cls, profile, schema, table_name, agate_table):
         col_sqls = []
         for idx, col_name in enumerate(agate_table.column_names):
             col_type = agate_table.column_types[idx]
-            converted_type = cls.convert_agate_type(col_type)
-            col_sqls.append('"{}" {}'.format(col_name, converted_type))
+            type_ = cls.convert_agate_type(col_type)
+            col_sqls.append('"{}" {}'.format(col_name, type_))
         sql = 'create table "{}"."{}" ({})'.format(schema, table_name,
                                                    ", ".join(col_sqls))
         return cls.add_query(profile, sql)
 
     @classmethod
-    def load_csv(cls, profile, schema, table_name, agate_table):
+    def reset_csv_table(cls, profile, schema, table_name, agate_table,
+                        full_refresh=False):
+        if full_refresh:
+            cls.drop_table(profile, schema, table_name, None)
+            cls.create_csv_table(profile, schema, table_name, agate_table)
+        else:
+            cls.truncate(profile, schema, table_name)
+
+    @classmethod
+    def load_csv_rows(cls, profile, schema, table_name, agate_table):
         cols_sql = ", ".join(cls.quote(c) for c in agate_table.column_names)
         placeholders = ", ".join("%s" for _ in agate_table.column_names)
         sql = ('insert into {}.{} ({}) values ({})'
@@ -201,22 +206,3 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
                        cols_sql, placeholders))
         for row in agate_table.rows:
             cls.add_query(profile, sql, bindings=row)
-
-    @classmethod
-    def create_seed_table(cls, profile, schema, table_name, agate_table,
-                          full_refresh=False):
-        existing = cls.query_for_existing(profile, schema)
-        existing_type = existing.get(table_name)
-        if existing_type and existing_type != "table":
-            raise dbt.exceptions.RuntimeException(
-                "Cannot seed to '{}', it is a view".format(table_name))
-        if existing_type:
-            if full_refresh:
-                cls.drop_table(profile, schema, table_name, None)
-                cls.create_table(profile, schema, table_name, agate_table)
-            else:
-                cls.truncate(profile, schema, table_name)
-        else:
-            cls.create_table(profile, schema, table_name, agate_table)
-        cls.load_csv(profile, schema, table_name, agate_table)
-        cls.commit_if_has_connection(profile, None)
