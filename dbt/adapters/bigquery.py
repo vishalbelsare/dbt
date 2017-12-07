@@ -427,9 +427,9 @@ class BigQueryAdapter(PostgresAdapter):
         table = dataset.table(table_name, schema=bq_schema)
         conn = cls.get_connection(profile, None)
         client = conn.get('handle')
-        in_mem_buffer = six.StringIO()
-        agate_table.to_csv(in_mem_buffer)
-        job = table.upload_from_file(in_mem_buffer, "CSV", rewind=True,
-                                     client=client, skip_leading_rows=1)
+        with six.StringIO() as in_mem_buffer:
+            agate_table.to_csv(in_mem_buffer)
+            job = table.upload_from_file(in_mem_buffer, "CSV", rewind=True,
+                                         client=client, skip_leading_rows=1)
         with cls.exception_handler(profile, "LOAD TABLE"):
             cls.poll_until_job_completes(job, cls.get_timeout(conn))
