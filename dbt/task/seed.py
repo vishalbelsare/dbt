@@ -2,7 +2,6 @@ import os
 from dbt.node_runners import SeedRunner
 from dbt.node_types import NodeType
 from dbt.runner import RunManager
-from dbt.seeder import Seeder
 from dbt.task.base_task import RunnableTask
 import dbt.ui.printer
 
