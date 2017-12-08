@@ -724,6 +724,7 @@ def parse_seed_file(file_match, package_name):
         table = agate.Table.from_csv(abspath)
     except ValueError as e:
         dbt.exceptions.raise_compiler_error(str(e), node)
+    table.original_abspath = abspath
     node['agate_table'] = table
     return node
 

@@ -19,7 +19,6 @@ import agate
 
 import time
 import uuid
-import six
 
 
 class BigQueryAdapter(PostgresAdapter):
@@ -394,26 +393,25 @@ class BigQueryAdapter(PostgresAdapter):
                                  cls.quote(table))
 
     @classmethod
-    def convert_agate_type(cls, agate_table, col_idx):
-        agate_type = agate_table.column_types[col_idx]
-        conversions = [
-            (agate.Text, "STRING"),
-            (agate.Number, "FLOAT64"),
-            (agate.Boolean, "BOOL"),
-            (agate.DateTime, "DATETIME"),
-            (agate.Date, "DATE"),
-        ]
-        for agate_cls, sql in conversions:
-            if isinstance(agate_type, agate_cls):
-                return sql
+    def convert_text_type(cls, agate_table, col_idx):
+        return "STRING"
 
     @classmethod
-    def _agate_to_schema(cls, agate_table):
-        bq_schema = []
-        for idx, col_name in enumerate(agate_table.column_names):
-            type_ = cls.convert_agate_type(agate_table, idx)
-            bq_schema.append(google.cloud.bigquery.SchemaField(col_name, type_))
-        return bq_schema
+    def convert_number_type(cls, agate_table, col_idx):
+        decimals = agate_table.aggregate(agate.MaxPrecision(col_idx))
+        return "FLOAT64" if decimals else "INT64"
+
+    @classmethod
+    def convert_boolean_type(cls, agate_table, col_idx):
+        return "BOOL"
+
+    @classmethod
+    def convert_datetime_type(cls, agate_table, col_idx):
+        return "DATETIME"
+
+    @classmethod
+    def convert_date_type(cls, agate_table, col_idx):
+        return "DATE"
 
     @classmethod
     def create_csv_table(cls, profile, schema, table_name, agate_table):
@@ -425,15 +423,22 @@ class BigQueryAdapter(PostgresAdapter):
         cls.drop(profile, schema, table_name, "table")
 
     @classmethod
+    def _agate_to_schema(cls, agate_table):
+        bq_schema = []
+        for idx, col_name in enumerate(agate_table.column_names):
+            type_ = cls.convert_agate_type(agate_table, idx)
+            bq_schema.append(google.cloud.bigquery.SchemaField(col_name, type_))
+        return bq_schema
+
+    @classmethod
     def load_csv_rows(cls, profile, schema, table_name, agate_table):
         bq_schema = cls._agate_to_schema(agate_table)
         dataset = cls.get_dataset(profile, schema, None)
         table = dataset.table(table_name, schema=bq_schema)
         conn = cls.get_connection(profile, None)
         client = conn.get('handle')
-        with six.StringIO() as in_mem_buffer:
-            agate_table.to_csv(in_mem_buffer)
-            job = table.upload_from_file(in_mem_buffer, "CSV", rewind=True,
+        with open(agate_table.original_abspath, "rb") as f:
+            job = table.upload_from_file(f, "CSV", rewind=True,
                                          client=client, skip_leading_rows=1)
         with cls.exception_handler(profile, "LOAD TABLE"):
             cls.poll_until_job_completes(job, cls.get_timeout(conn))
