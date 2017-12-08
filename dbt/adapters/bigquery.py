@@ -393,21 +393,25 @@ class BigQueryAdapter(PostgresAdapter):
                                  cls.quote(schema),
                                  cls.quote(table))
 
-    agate_type_conversions = [
-        (agate.Text, "STRING"),
-        (agate.Number, "FLOAT64"),
-        (agate.Boolean, "BOOL"),
-        (agate.DateTime, "DATETIME"),
-        (agate.Date, "DATE"),
-    ]
-    agate_default_type = "STRING"
+    @classmethod
+    def convert_agate_type(cls, agate_table, col_idx):
+        agate_type = agate_table.column_types[col_idx]
+        conversions = [
+            (agate.Text, "STRING"),
+            (agate.Number, "FLOAT64"),
+            (agate.Boolean, "BOOL"),
+            (agate.DateTime, "DATETIME"),
+            (agate.Date, "DATE"),
+        ]
+        for agate_cls, sql in conversions:
+            if isinstance(agate_type, agate_cls):
+                return sql
 
     @classmethod
     def _agate_to_schema(cls, agate_table):
         bq_schema = []
         for idx, col_name in enumerate(agate_table.column_names):
-            col_type = agate_table.column_types[idx]
-            type_ = cls.convert_agate_type(col_type)
+            type_ = cls.convert_agate_type(agate_table, idx)
             bq_schema.append(google.cloud.bigquery.SchemaField(col_name, type_))
         return bq_schema
 

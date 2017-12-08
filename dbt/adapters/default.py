@@ -2,6 +2,7 @@ import copy
 import itertools
 import multiprocessing
 import time
+import agate
 
 from contextlib import contextmanager
 
@@ -103,13 +104,6 @@ class DefaultAdapter(object):
     def load_csv(cls, profile, schema, table_name, agate_table):
         raise dbt.exceptions.NotImplementedException(
             '`load_csv` is not implemented for this adapter!')
-
-    @classmethod
-    def convert_agate_type(cls, agate_type):
-        for cls, sql in cls.agate_type_conversions:
-            if isinstance(agate_type, cls):
-                return sql
-        return cls.agate_default_type
 
     ###
     # FUNCTIONS THAT SHOULD BE ABSTRACT
@@ -637,3 +631,17 @@ class DefaultAdapter(object):
             cls.create_csv_table(profile, schema, table_name, agate_table)
         cls.load_csv_rows(profile, schema, table_name, agate_table)
         cls.commit_if_has_connection(profile, None)
+
+    @classmethod
+    def convert_agate_type(cls, agate_table, col_idx):
+        agate_type = agate_table.column_types[col_idx]
+        conversions = [
+            (agate.Text, cls.convert_text_type),
+            (agate.Number, cls.convert_number_type),
+            (agate.Boolean, cls.convert_boolean_type),
+            (agate.DateTime, cls.convert_datetime_type),
+            (agate.Date, cls.convert_date_type),
+        ]
+        for agate_cls, func in conversions:
+            if isinstance(agate_type, agate_cls):
+                return func(agate_table, col_idx)

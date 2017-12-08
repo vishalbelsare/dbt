@@ -6,6 +6,7 @@ from contextlib import contextmanager
 import dbt.adapters.default
 import dbt.compat
 import dbt.exceptions
+from dbt.utils import max_digits
 
 from dbt.logger import GLOBAL_LOGGER as logger
 
@@ -167,21 +168,38 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
 
         logger.debug("Cancel query '{}': {}".format(connection_name, res))
 
-    agate_type_conversions = [
-        (agate.Text, "text"),
-        (agate.Number, "numeric"),
-        (agate.Boolean, "boolean"),
-        (agate.DateTime, "timestamp without time zone"),
-        (agate.Date, "date"),
-    ]
-    agate_default_type = "text"
+    @classmethod
+    def convert_text_type(cls, agate_table, col_idx):
+        return "text"
+
+    @classmethod
+    def convert_number_type(cls, agate_table, col_idx):
+        column = agate_table.columns[col_idx]
+        precision = max_digits(column.values_without_nulls())
+        # agate uses the term Precision but in this context, it is really the
+        # scale - ie. the number of decimal places
+        scale = agate_table.aggregate(agate.MaxPrecision(col_idx))
+        if not scale:
+            return "integer"
+        return "numeric({}, {})".format(precision, scale)
+
+    @classmethod
+    def convert_boolean_type(cls, agate_table, col_idx):
+        return "boolean"
+
+    @classmethod
+    def convert_datetime_type(cls, agate_table, col_idx):
+        return "timestamp without time zone"
+
+    @classmethod
+    def convert_date_type(cls, agate_table, col_idx):
+        return "date"
 
     @classmethod
     def create_csv_table(cls, profile, schema, table_name, agate_table):
         col_sqls = []
         for idx, col_name in enumerate(agate_table.column_names):
-            col_type = agate_table.column_types[idx]
-            type_ = cls.convert_agate_type(col_type)
+            type_ = cls.convert_agate_type(agate_table, idx)
             col_sqls.append('"{}" {}'.format(col_name, type_))
         sql = 'create table "{}"."{}" ({})'.format(schema, table_name,
                                                    ", ".join(col_sqls))
