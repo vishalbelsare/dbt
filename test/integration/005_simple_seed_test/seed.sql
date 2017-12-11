@@ -1,5 +1,5 @@
 create table {schema}.seed_expected (
-	id NUMERIC,
+	id INTEGER,
 	first_name TEXT,
 	email TEXT,
 	ip_address TEXT,
