@@ -96,14 +96,20 @@ class DefaultAdapter(object):
             '`cancel_connection` is not implemented for this adapter!')
 
     @classmethod
-    def create_table(cls, profile, schema, table_name, agate_table):
+    def create_csv_table(cls, profile, schema, table_name, agate_table):
         raise dbt.exceptions.NotImplementedException(
-            '`create_table` is not implemented for this adapter!')
+            '`create_csv_table` is not implemented for this adapter!')
 
     @classmethod
-    def load_csv(cls, profile, schema, table_name, agate_table):
+    def reset_csv_table(cls, profile, schema, table_name, agate_table,
+                        full_refresh=False):
         raise dbt.exceptions.NotImplementedException(
-            '`load_csv` is not implemented for this adapter!')
+            '`reset_csv_table` is not implemented for this adapter!')
+
+    @classmethod
+    def load_csv_rows(cls, profile, schema, table_name, agate_table):
+        raise dbt.exceptions.NotImplementedException(
+            '`load_csv_rows` is not implemented for this adapter!')
 
     ###
     # FUNCTIONS THAT SHOULD BE ABSTRACT
@@ -631,6 +637,31 @@ class DefaultAdapter(object):
             cls.create_csv_table(profile, schema, table_name, agate_table)
         cls.load_csv_rows(profile, schema, table_name, agate_table)
         cls.commit_if_has_connection(profile, None)
+
+    @classmethod
+    def convert_text_type(cls, agate_table, col_idx):
+        raise dbt.exceptions.NotImplementedException(
+            '`convert_text_type` is not implemented for this adapter!')
+
+    @classmethod
+    def convert_number_type(cls, agate_table, col_idx):
+        raise dbt.exceptions.NotImplementedException(
+            '`convert_number_type` is not implemented for this adapter!')
+
+    @classmethod
+    def convert_boolean_type(cls, agate_table, col_idx):
+        raise dbt.exceptions.NotImplementedException(
+            '`convert_boolean_type` is not implemented for this adapter!')
+
+    @classmethod
+    def convert_datetime_type(cls, agate_table, col_idx):
+        raise dbt.exceptions.NotImplementedException(
+            '`convert_datetime_type` is not implemented for this adapter!')
+
+    @classmethod
+    def convert_date_type(cls, agate_table, col_idx):
+        raise dbt.exceptions.NotImplementedException(
+            '`convert_date_type` is not implemented for this adapter!')
 
     @classmethod
     def convert_agate_type(cls, agate_table, col_idx):
