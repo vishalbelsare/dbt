@@ -196,6 +196,10 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
         return "date"
 
     @classmethod
+    def convert_time_type(cls, agate_table, col_idx):
+        return "time"
+
+    @classmethod
     def create_csv_table(cls, profile, schema, table_name, agate_table):
         col_sqls = []
         for idx, col_name in enumerate(agate_table.column_names):

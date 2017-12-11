@@ -394,24 +394,20 @@ class BigQueryAdapter(PostgresAdapter):
 
     @classmethod
     def convert_text_type(cls, agate_table, col_idx):
-        return "STRING"
+        return "string"
 
     @classmethod
     def convert_number_type(cls, agate_table, col_idx):
         decimals = agate_table.aggregate(agate.MaxPrecision(col_idx))
-        return "FLOAT64" if decimals else "INT64"
+        return "float64" if decimals else "int64"
 
     @classmethod
     def convert_boolean_type(cls, agate_table, col_idx):
-        return "BOOL"
+        return "bool"
 
     @classmethod
     def convert_datetime_type(cls, agate_table, col_idx):
-        return "DATETIME"
-
-    @classmethod
-    def convert_date_type(cls, agate_table, col_idx):
-        return "DATE"
+        return "datetime"
 
     @classmethod
     def create_csv_table(cls, profile, schema, table_name, agate_table):

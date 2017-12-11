@@ -664,6 +664,11 @@ class DefaultAdapter(object):
             '`convert_date_type` is not implemented for this adapter!')
 
     @classmethod
+    def convert_time_type(cls, agate_table, col_idx):
+        raise dbt.exceptions.NotImplementedException(
+            '`convert_time_type` is not implemented for this adapter!')
+
+    @classmethod
     def convert_agate_type(cls, agate_table, col_idx):
         agate_type = agate_table.column_types[col_idx]
         conversions = [
@@ -672,6 +677,7 @@ class DefaultAdapter(object):
             (agate.Boolean, cls.convert_boolean_type),
             (agate.DateTime, cls.convert_datetime_type),
             (agate.Date, cls.convert_date_type),
+            (agate.TimeDelta, cls.convert_time_type),
         ]
         for agate_cls, func in conversions:
             if isinstance(agate_type, agate_cls):
