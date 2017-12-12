@@ -45,7 +45,5 @@ setup(
         'colorama==0.3.9',
         'google-cloud-bigquery==0.26.0',
         'agate>=1.6,<2',
-        'cryptography==2.0.3',
-        'pyOpenSSL==17.3.0',
     ]
 )
