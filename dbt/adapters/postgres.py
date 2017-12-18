@@ -222,7 +222,7 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
     def load_csv_rows(cls, profile, schema, table_name, agate_table):
         bindings = []
         placeholders = []
-        cols_sql = ", ".join(cls.quote(c) for c in agate_table.column_names)
+        cols_sql = ", ".join(c for c in agate_table.column_names)
 
         for row in agate_table.rows:
             bindings += row
