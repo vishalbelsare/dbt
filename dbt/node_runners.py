@@ -323,6 +323,22 @@ class ModelRunner(CompileRunner):
             raise
 
     @classmethod
+    def create_schemas(cls, project, adapter, flat_graph):
+        profile = project.run_environment()
+        required_schemas = cls.get_model_schemas(flat_graph)
+
+        # Snowflake needs to issue a "use {schema}" query, where schema
+        # is the one defined in the profile. Create this schema if it
+        # does not exist, otherwise subsequent queries will fail. Generally,
+        # dbt expects that this schema will exist anyway.
+        required_schemas.add(adapter.get_default_schema(profile))
+
+        existing_schemas = set(adapter.get_existing_schemas(profile))
+
+        for schema in (required_schemas - existing_schemas):
+            adapter.create_schema(profile, schema)
+
+    @classmethod
     def before_run(cls, project, adapter, flat_graph):
         cls.create_schemas(project, adapter, flat_graph)
         cls.safe_run_hooks(project, adapter, flat_graph, RunHookType.Start)
