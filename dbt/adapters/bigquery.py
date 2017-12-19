@@ -41,7 +41,9 @@ class BigQueryAdapter(PostgresAdapter):
     def handle_error(cls, error, message, sql):
         logger.debug(message.format(sql=sql))
         logger.debug(error)
-        error_msg = "\n".join([error['message'] for error in error.errors])
+        error_msg = "\n".join(
+            [item['message'] for item in error.errors])
+
         raise dbt.exceptions.DatabaseException(error_msg)
 
     @classmethod
@@ -423,7 +425,8 @@ class BigQueryAdapter(PostgresAdapter):
         bq_schema = []
         for idx, col_name in enumerate(agate_table.column_names):
             type_ = cls.convert_agate_type(agate_table, idx)
-            bq_schema.append(google.cloud.bigquery.SchemaField(col_name, type_))
+            bq_schema.append(
+                google.cloud.bigquery.SchemaField(col_name, type_))
         return bq_schema
 
     @classmethod
