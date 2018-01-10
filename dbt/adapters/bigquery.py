@@ -148,10 +148,13 @@ class BigQueryAdapter(PostgresAdapter):
         if not isinstance(schemas, (list, tuple)):
             schemas = [schemas]
 
+        conn = cls.get_connection(profile, model_name)
+        client = conn.get('handle')
+
         all_tables = []
         for schema in schemas:
             dataset = cls.get_dataset(profile, schema, model_name)
-            all_tables.extend(dataset.list_tables())
+            all_tables.extend(client.list_tables(dataset))
 
         relation_type_lookup = {
             'TABLE': 'table',
@@ -159,16 +162,19 @@ class BigQueryAdapter(PostgresAdapter):
             'EXTERNAL': 'external'
         }
 
-        existing = [(table.name, relation_type_lookup.get(table.table_type))
+        existing = [(table.table_id, relation_type_lookup.get(table.table_type))
                     for table in all_tables]
 
         return dict(existing)
 
     @classmethod
     def drop(cls, profile, schema, relation, relation_type, model_name=None):
+        conn = cls.get_connection(profile, model_name)
+        client = conn.get('handle')
+
         dataset = cls.get_dataset(profile, schema, model_name)
         relation_object = dataset.table(relation)
-        relation_object.delete()
+        client.delete_table(relation_object)
 
     @classmethod
     def rename(cls, profile, schema, from_name, to_name, model_name=None):
@@ -217,20 +223,38 @@ class BigQueryAdapter(PostgresAdapter):
         conn = cls.get_connection(profile, model_name)
         client = conn.get('handle')
 
-        table = dataset.table(model_name)
-        job_id = 'dbt-create-{}-{}'.format(model_name, uuid.uuid4())
-        job = client.run_async_query(job_id, model_sql)
-        job.use_legacy_sql = False
-        job.destination = table
-        job.write_disposition = 'WRITE_TRUNCATE'
-        job.begin()
+        # Do this to initially create the partitioned table!
+        # table_ref = dataset.table(model_name)
+        # table = google.cloud.bigquery.Table(table_ref)
+        # table.partitioning_type = 'DAY'
+        # created_table = client.create_table(table)
 
-        cls.release_connection(profile, model_name)
+        table_ref = dataset.table(model_name)
 
-        logger.debug("Model SQL ({}):\n{}".format(model_name, model_sql))
+        job_config = google.cloud.bigquery.QueryJobConfig()
+        job_config.destination = table_ref
+        job_config.write_disposition = 'WRITE_TRUNCATE'
+
+        query_job = client.query(model_sql, job_config=job_config)
+
+        #job_id = 'dbt-create-{}-{}'.format(model_name, uuid.uuid4())
+        #job = client.run_async_query(job_id, model_sql)
+        #job.use_legacy_sql = False
+        #job.destination = table
+        #job.write_disposition = 'WRITE_TRUNCATE'
+        #job.begin()
 
         with cls.exception_handler(profile, model_sql, model_name, model_name):
-            cls.poll_until_job_completes(job, cls.get_timeout(conn))
+            # this waits for the job to complete
+            iterator = query_job.result(timeout=cls.get_timeout(conn))
+
+        # TODO : use this elsewhere!
+        cls.release_connection(profile, model_name)
+
+        #logger.debug("Model SQL ({}):\n{}".format(model_name, model_sql))
+
+        #with cls.exception_handler(profile, model_sql, model_name, model_name):
+        #   cls.poll_until_job_completes(job, cls.get_timeout(conn))
 
         return "CREATE TABLE"
 
@@ -339,7 +363,7 @@ class BigQueryAdapter(PostgresAdapter):
 
         with cls.exception_handler(profile, 'list dataset', model_name):
             all_datasets = client.list_datasets()
-            return [ds.name for ds in all_datasets]
+            return [ds.dataset_id for ds in all_datasets]
 
     @classmethod
     def get_columns_in_table(cls, profile, schema_name, table_name,
