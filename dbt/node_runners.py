@@ -484,11 +484,11 @@ class ArchiveRunner(ModelRunner):
                                                  self.num_nodes)
 
 
-class SeedRunner(CompileRunner):
+class SeedRunner(ModelRunner):
 
     def describe_node(self):
-        table_name = self.node["table_name"]
-        return "seed {}".format(table_name)
+        schema_name = self.node.get('schema')
+        return "seed file {}.{}".format(schema_name, self.node["name"])
 
     @classmethod
     def before_run(cls, project, adapter, flat_graph):
@@ -501,11 +501,24 @@ class SeedRunner(CompileRunner):
 
     def execute(self, compiled_node, existing_, flat_graph):
         schema = compiled_node["schema"]
-        table_name = compiled_node["table_name"]
+        table_name = compiled_node["name"]
         table = compiled_node["agate_table"]
         self.adapter.handle_csv_table(self.profile, schema, table_name, table,
                                       full_refresh=dbt.flags.FULL_REFRESH)
-        return RunModelResult(compiled_node)
+
+        if dbt.flags.FULL_REFRESH:
+            status = 'CREATE {}'.format(len(table.rows))
+        else:
+            status = 'INSERT {}'.format(len(table.rows))
+
+        return RunModelResult(compiled_node, status=status)
 
     def compile(self, flat_graph):
         return self.node
+
+    def print_result_line(self, result):
+        schema_name = self.node.get('schema')
+        dbt.ui.printer.print_seed_result_line(result,
+                                              schema_name,
+                                              self.node_index,
+                                              self.num_nodes)

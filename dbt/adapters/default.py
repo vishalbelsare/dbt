@@ -540,7 +540,7 @@ class DefaultAdapter(object):
             pre = time.time()
 
             cursor = connection.get('handle').cursor()
-            cursor.execute(sql, (bindings or ()))
+            cursor.execute(sql, bindings)
 
             logger.debug("SQL status: %s in %0.2f seconds",
                          cls.get_status(cursor), (time.time() - pre))

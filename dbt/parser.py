@@ -700,7 +700,7 @@ def parse_archives_from_project(project):
     return archives
 
 
-def parse_seed_file(file_match, package_name):
+def parse_seed_file(file_match, root_dir, package_name):
     abspath = file_match['absolute_path']
     logger.debug("Parsing {}".format(abspath))
     to_return = {}
@@ -708,9 +708,12 @@ def parse_seed_file(file_match, package_name):
     node = {
         'unique_id': get_path(NodeType.Seed, package_name, table_name),
         'path': file_match['relative_path'],
-        'table_name': table_name,
         'name': table_name,
+        'root_path': root_dir,
         'resource_type': NodeType.Seed,
+        # Give this raw_sql so it conforms to the node spec,
+        # use dummy text so it doesn't look like an empty node
+        'raw_sql': '-- csv --',
         'package_name': package_name,
         'depends_on': {'nodes': []},
         'original_file_path': os.path.join(file_match.get('searched_path'),
@@ -736,11 +739,13 @@ def load_and_parse_seeds(package_name, root_project, all_projects, root_dir,
         extension)
     result = {}
     for file_match in file_matches:
-        node = parse_seed_file(file_match, package_name)
+        node = parse_seed_file(file_match, root_dir, package_name)
         node_path = node['unique_id']
         parsed = parse_node(node, node_path, root_project,
                             all_projects.get(package_name),
                             all_projects, tags=tags, macros=macros)
         # parsed['empty'] = False
         result[node_path] = parsed
+
+    dbt.contracts.graph.parsed.validate_nodes(result)
     return result
