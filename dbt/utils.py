@@ -22,7 +22,8 @@ DBTConfigKeys = [
     'sort_type',
     'pre-hook',
     'post-hook',
-    'vars'
+    'vars',
+    'bind',
 ]
 
 
@@ -372,3 +373,18 @@ def max_digits(values):
         sign, digits, exponent = value.normalize().as_tuple()
         max_ = max(len(digits), max_)
     return max_
+
+
+def invalid_ref_fail_unless_test(node, target_model_name,
+                                 target_model_package):
+    if node.get('resource_type') == NodeType.Test:
+        warning = dbt.exceptions.get_target_not_found_msg(
+                    node,
+                    target_model_name,
+                    target_model_package)
+        logger.debug("WARNING: {}".format(warning))
+    else:
+        dbt.exceptions.ref_target_not_found(
+            node,
+            target_model_name,
+            target_model_package)
