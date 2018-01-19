@@ -388,6 +388,11 @@ def parse_args(args):
         action='store_true',
         help='Drop existing seed tables and recreate them'
     )
+    seed_sub.add_argument(
+        '--show',
+        action='store_true',
+        help='Show a sample of the loaded data in the terminal'
+    )
     seed_sub.set_defaults(cls=seed_task.SeedTask, which='seed')
 
     sub = subs.add_parser('test', parents=[base_subparser])
