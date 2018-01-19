@@ -54,3 +54,52 @@
   {{ exceptions.materialization_not_available(model, 'bigquery') }}
 
 {% endmaterialization %}
+
+
+
+{% materialization dp_table, adapter='bigquery' -%}
+
+  {%- set identifier = model['name'] -%}
+  {%- set tmp_identifier = identifier + '__dbt_tmp' -%}
+  {%- set non_destructive_mode = (flags.NON_DESTRUCTIVE == True) -%}
+  {%- set existing = adapter.query_for_existing(schema) -%}
+  {%- set existing_type = existing.get(identifier) -%}
+
+  {%- set partition_date = config.get('partition_date') -%}
+
+  {#
+      Since dbt uses WRITE_TRUNCATE mode for tables, we only need to drop this thing
+      if it is not a table. If it _is_ already a table, then we can overwrite it without downtime
+  #}
+  {%- if existing_type is not none and existing_type != 'table' -%}
+      {{ adapter.drop(schema, identifier, existing_type) }}
+  {%- endif -%}
+
+  -- build model
+  {% if existing_type is none %}
+      {# TODO : Test that this works if a non dp-table is changed to a dp-table #}
+      {{ adapter.make_date_partitioned_table(schema, identifier) }}
+  {% endif %}
+
+
+  {% set start_date_raw = config.get('start_date') %}
+  {% set end_date_raw = config.get('end_date') %}
+
+  {% set start_date = modules.datetime.datetime.strptime(start_date_raw, '%Y%m%d') %}
+  {% set end_date = modules.datetime.datetime.strptime(end_date_raw, '%Y%m%d') %}
+
+  {% set day_count = (end_date - start_date).days %}
+
+  {% for i in range(0, day_count + 1) %}
+    {% set the_day = (modules.datetime.timedelta(days=i) + start_date).strftime('%Y%m%d') %}
+    {{ log('Running for day ' ~ the_day, info=True) }}
+
+    {% set fixed_sql = model['injected_sql'] | replace('DATE_PARTITION_DATE', the_day) %}
+    {% set _ = adapter.execute_model(model, 'table', fixed_sql, decorator=the_day) %}
+  {% endfor %}
+
+  {% set result = 'CREATED ' ~ (day_count + 1) ~ ' TABLES' %}
+
+  {{ store_result('main', status=result) }}
+
+{% endmaterialization %}

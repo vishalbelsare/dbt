@@ -234,9 +234,8 @@ class BigQueryAdapter(PostgresAdapter):
         return client.create_table(table)
 
     @classmethod
-    def materialize_as_table(cls, profile, dataset, model, decorator=None):
+    def materialize_as_table(cls, profile, dataset, model, model_sql, decorator=None):
         model_name = model.get('name')
-        model_sql = model.get('injected_sql')
         partition_type = model.get('config', '{}').get('partition_type')
 
         conn = cls.get_connection(profile, model_name)
@@ -265,7 +264,10 @@ class BigQueryAdapter(PostgresAdapter):
         return "CREATE TABLE"
 
     @classmethod
-    def execute_model(cls, profile, model, materialization, decorator=None, model_name=None):
+    def execute_model(cls, profile, model, materialization, sql_override=None, decorator=None, model_name=None):
+
+        if sql_override is None:
+            sql_override = model.get('injected_sql')
 
         if flags.STRICT_MODE:
             connection = cls.get_connection(profile, model.get('name'))
@@ -280,7 +282,7 @@ class BigQueryAdapter(PostgresAdapter):
         if materialization == 'view':
             res = cls.materialize_as_view(profile, dataset, model)
         elif materialization == 'table':
-            res = cls.materialize_as_table(profile, dataset, model, decorator)
+            res = cls.materialize_as_table(profile, dataset, model, sql_override, decorator)
         else:
             msg = "Invalid relation type: '{}'".format(materialization)
             raise dbt.exceptions.RuntimeException(msg, model)
