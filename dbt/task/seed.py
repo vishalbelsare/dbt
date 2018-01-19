@@ -36,7 +36,7 @@ class SeedTask(RunnableTask):
 
         header = "Random sample of table: {}.{}".format(schema, name)
         logger.info("")
-        ogger.info(header)
+        logger.info(header)
         logger.info("-" * len(header))
         rand_table.print_table(max_rows=10, max_columns=None)
         logger.info("")
