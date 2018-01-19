@@ -1,6 +1,5 @@
 import json
 import os
-import pytz
 import voluptuous
 
 from dbt.adapters.factory import get_adapter
@@ -16,6 +15,11 @@ import dbt.hooks
 
 from dbt.logger import GLOBAL_LOGGER as logger  # noqa
 
+
+# These modules are added to the context. Consider alternative
+# approaches which will extend well to potentially many modules
+import pytz
+import datetime
 
 class DatabaseWrapper(object):
     """
@@ -291,6 +295,7 @@ def generate(model, project, flat_graph, provider=None):
         "model": model,
         "modules": {
             "pytz": pytz,
+            "datetime": datetime
         },
         "post_hooks": post_hooks,
         "pre_hooks": pre_hooks,

@@ -27,7 +27,8 @@ class BigQueryAdapter(PostgresAdapter):
         "execute_model",
         "drop",
         "execute",
-        "quote_schema_and_table"
+        "quote_schema_and_table",
+        "make_date_partitioned_table"
     ]
 
     SCOPE = ('https://www.googleapis.com/auth/bigquery',
@@ -187,7 +188,10 @@ class BigQueryAdapter(PostgresAdapter):
         return credentials.get('timeout_seconds', cls.QUERY_TIMEOUT)
 
     @classmethod
-    def materialize_as_view(cls, profile, dataset, model_name, model_sql):
+    def materialize_as_view(cls, profile, dataset, model):
+        model_name = model.get('name')
+        model_sql = model.get('injected_sql')
+
         view = dataset.table(model_name)
         view.view_query = model_sql
         view.view_use_legacy_sql = False
@@ -219,30 +223,37 @@ class BigQueryAdapter(PostgresAdapter):
             raise job.exception()
 
     @classmethod
-    def materialize_as_table(cls, profile, dataset, model_name, model_sql):
+    def make_date_partitioned_table(cls, profile, dataset_name, identifier, model_name=None):
         conn = cls.get_connection(profile, model_name)
         client = conn.get('handle')
 
-        # Do this to initially create the partitioned table!
-        # table_ref = dataset.table(model_name)
-        # table = google.cloud.bigquery.Table(table_ref)
-        # table.partitioning_type = 'DAY'
-        # created_table = client.create_table(table)
+        dataset = cls.get_dataset(profile, dataset_name, identifier)
+        table_ref = dataset.table(identifier)
+        table = google.cloud.bigquery.Table(table_ref)
+        table.partitioning_type = 'DAY'
+        return client.create_table(table)
 
-        table_ref = dataset.table(model_name)
+    @classmethod
+    def materialize_as_table(cls, profile, dataset, model, decorator=None):
+        model_name = model.get('name')
+        model_sql = model.get('injected_sql')
+        partition_type = model.get('config', '{}').get('partition_type')
 
+        conn = cls.get_connection(profile, model_name)
+        client = conn.get('handle')
+
+        if decorator is None:
+            table_name = model_name
+        else:
+            table_name = "{}${}".format(model_name, decorator)
+
+        table_ref = dataset.table(table_name)
         job_config = google.cloud.bigquery.QueryJobConfig()
         job_config.destination = table_ref
         job_config.write_disposition = 'WRITE_TRUNCATE'
 
+        logger.debug("Model SQL ({}):\n{}".format(table_name, model_sql))
         query_job = client.query(model_sql, job_config=job_config)
-
-        #job_id = 'dbt-create-{}-{}'.format(model_name, uuid.uuid4())
-        #job = client.run_async_query(job_id, model_sql)
-        #job.use_legacy_sql = False
-        #job.destination = table
-        #job.write_disposition = 'WRITE_TRUNCATE'
-        #job.begin()
 
         with cls.exception_handler(profile, model_sql, model_name, model_name):
             # this waits for the job to complete
@@ -251,15 +262,10 @@ class BigQueryAdapter(PostgresAdapter):
         # TODO : use this elsewhere!
         cls.release_connection(profile, model_name)
 
-        #logger.debug("Model SQL ({}):\n{}".format(model_name, model_sql))
-
-        #with cls.exception_handler(profile, model_sql, model_name, model_name):
-        #   cls.poll_until_job_completes(job, cls.get_timeout(conn))
-
         return "CREATE TABLE"
 
     @classmethod
-    def execute_model(cls, profile, model, materialization, model_name=None):
+    def execute_model(cls, profile, model, materialization, decorator=None, model_name=None):
 
         if flags.STRICT_MODE:
             connection = cls.get_connection(profile, model.get('name'))
@@ -268,16 +274,13 @@ class BigQueryAdapter(PostgresAdapter):
 
         model_name = model.get('name')
         model_schema = model.get('schema')
-        model_sql = model.get('injected_sql')
 
         dataset = cls.get_dataset(profile, model_schema, model_name)
 
         if materialization == 'view':
-            res = cls.materialize_as_view(profile, dataset, model_name,
-                                          model_sql)
+            res = cls.materialize_as_view(profile, dataset, model)
         elif materialization == 'table':
-            res = cls.materialize_as_table(profile, dataset, model_name,
-                                           model_sql)
+            res = cls.materialize_as_table(profile, dataset, model, decorator)
         else:
             msg = "Invalid relation type: '{}'".format(materialization)
             raise dbt.exceptions.RuntimeException(msg, model)
@@ -334,6 +337,7 @@ class BigQueryAdapter(PostgresAdapter):
 
         dataset = cls.get_dataset(profile, schema, model_name)
 
+        # TODO: should this use client.create_dataset(dataset)?
         with cls.exception_handler(profile, 'create dataset', model_name):
             dataset.create()
 
