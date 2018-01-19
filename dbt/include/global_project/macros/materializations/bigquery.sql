@@ -92,7 +92,7 @@
 
   {% for i in range(0, day_count + 1) %}
     {% set the_day = (modules.datetime.timedelta(days=i) + start_date).strftime('%Y%m%d') %}
-    {{ log('Running for day ' ~ the_day, info=True) }}
+    {{ log('         |  + Running for day ' ~ the_day, info=True) }}
 
     {% set fixed_sql = model['injected_sql'] | replace('DATE_PARTITION_DATE', the_day) %}
     {% set _ = adapter.execute_model(model, 'table', fixed_sql, decorator=the_day) %}
