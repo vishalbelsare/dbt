@@ -21,6 +21,7 @@ from dbt.logger import GLOBAL_LOGGER as logger  # noqa
 import pytz
 import datetime
 
+
 class DatabaseWrapper(object):
     """
     Wrapper for runtime database interaction. Should only call adapter
@@ -259,6 +260,7 @@ def try_or_compiler_error(model):
         except Exception as e:
             dbt.exceptions.raise_compiler_error(message_if_exception, model)
     return impl
+
 
 def _return(value):
     raise dbt.exceptions.MacroReturn(value)
