@@ -290,38 +290,27 @@ class BigQueryAdapter(PostgresAdapter):
         return res
 
     @classmethod
-    def fetch_query_results(cls, query):
-        all_rows = []
-
-        rows = query.rows
-        token = query.page_token
-
-        while True:
-            all_rows.extend(rows)
-            if token is None:
-                break
-            rows, total_count, token = query.fetch_data(page_token=token)
-        return all_rows
-
-    @classmethod
     def execute(cls, profile, sql, model_name=None, fetch=False, **kwargs):
         conn = cls.get_connection(profile, model_name)
         client = conn.get('handle')
 
-        query = client.run_sync_query(sql)
-        query.timeout_ms = cls.get_timeout(conn) * 1000
-        query.use_legacy_sql = False
-
         debug_message = "Fetching data for query {}:\n{}"
         logger.debug(debug_message.format(model_name, sql))
 
-        query.run()
+        job_config = google.cloud.bigquery.QueryJobConfig()
+        job_config.use_legacy_sql = False
+        query_job = client.query(sql, job_config)
+
+        # this blocks until the query has completed
+        with cls.exception_handler(profile, 'create dataset', model_name):
+            iterator = query_job.result()
 
         res = []
         if fetch:
-            res = cls.fetch_query_results(query)
+            res = list(iterator)
 
-        status = 'ERROR' if query.errors else 'OK'
+        # If we get here, the query succeeded
+        status = 'OK'
         return status, res
 
     @classmethod
@@ -337,20 +326,27 @@ class BigQueryAdapter(PostgresAdapter):
     def create_schema(cls, profile, schema, model_name=None):
         logger.debug('Creating schema "%s".', schema)
 
-        dataset = cls.get_dataset(profile, schema, model_name)
+        conn = cls.get_connection(profile, model_name)
+        client = conn.get('handle')
 
-        # TODO: should this use client.create_dataset(dataset)?
+        dataset = cls.get_dataset(profile, schema, model_name)
         with cls.exception_handler(profile, 'create dataset', model_name):
-            dataset.create()
+            client.create_dataset(dataset)
 
     @classmethod
-    def drop_tables_in_schema(cls, dataset):
-        for table in dataset.list_tables():
-            table.delete()
+    def drop_tables_in_schema(cls, profile, dataset):
+        conn = cls.get_connection(profile)
+        client = conn.get('handle')
+
+        for table in client.list_tables(dataset):
+            client.delete_table(table.reference)
 
     @classmethod
     def drop_schema(cls, profile, schema, model_name=None):
         logger.debug('Dropping schema "%s".', schema)
+
+        conn = cls.get_connection(profile)
+        client = conn.get('handle')
 
         if not cls.check_schema_exists(profile, schema, model_name):
             return
@@ -358,13 +354,12 @@ class BigQueryAdapter(PostgresAdapter):
         dataset = cls.get_dataset(profile, schema, model_name)
 
         with cls.exception_handler(profile, 'drop dataset', model_name):
-            cls.drop_tables_in_schema(dataset)
-            dataset.delete()
+            cls.drop_tables_in_schema(profile, dataset)
+            client.delete_dataset(dataset)
 
     @classmethod
     def get_existing_schemas(cls, profile, model_name=None):
         conn = cls.get_connection(profile, model_name)
-
         client = conn.get('handle')
 
         with cls.exception_handler(profile, 'list dataset', model_name):
@@ -385,14 +380,16 @@ class BigQueryAdapter(PostgresAdapter):
 
         with cls.exception_handler(profile, 'get dataset', model_name):
             all_datasets = client.list_datasets()
-            return any([ds.name == schema for ds in all_datasets])
+            return any([ds.dataset_id == schema for ds in all_datasets])
 
     @classmethod
     def get_dataset(cls, profile, dataset_name, model_name=None):
         conn = cls.get_connection(profile, model_name)
 
         client = conn.get('handle')
-        dataset = client.dataset(dataset_name)
+        dataset_ref = client.dataset(dataset_name)
+        dataset = google.cloud.bigquery.Dataset(dataset_ref)
+
         return dataset
 
     @classmethod
