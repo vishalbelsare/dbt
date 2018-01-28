@@ -192,18 +192,18 @@ class BigQueryAdapter(PostgresAdapter):
         model_name = model.get('name')
         model_sql = model.get('injected_sql')
 
-        view = dataset.table(model_name)
+        conn = cls.get_connection(profile, model_name)
+        client = conn.get('handle')
+
+        view_ref = dataset.table(model_name)
+        view = google.cloud.bigquery.Table(view_ref)
         view.view_query = model_sql
         view.view_use_legacy_sql = False
 
         logger.debug("Model SQL ({}):\n{}".format(model_name, model_sql))
 
         with cls.exception_handler(profile, model_sql, model_name, model_name):
-            view.create()
-
-        if view.created is None:
-            msg = "Error creating view {}".format(model_name)
-            raise dbt.exceptions.RuntimeException(msg)
+            client.create_table(view)
 
         return "CREATE VIEW"
 

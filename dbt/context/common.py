@@ -252,6 +252,14 @@ def tojson(value, default=None):
         return default
 
 
+def try_or_compiler_error(model):
+    def impl(message_if_exception, func, *args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            dbt.exceptions.raise_compiler_error(message_if_exception, model)
+    return impl
+
 def _return(value):
     raise dbt.exceptions.MacroReturn(value)
 
@@ -307,7 +315,8 @@ def generate(model, project, flat_graph, provider=None):
         "fromjson": fromjson,
         "tojson": tojson,
         "target": target,
-        "this": dbt.utils.Relation(profile, adapter, model, use_temp=True)
+        "this": dbt.utils.Relation(profile, adapter, model, use_temp=True),
+        "try_or_compiler_error": try_or_compiler_error(model)
     })
 
     context = _add_tracking(context)
