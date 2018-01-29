@@ -7,9 +7,6 @@ from dbt.project import read_project
 
 class TestBigqueryDatePartitioning(DBTIntegrationTest):
 
-    def setUp(self):
-        pass
-
     @property
     def schema(self):
         return "bigquery_test_022"
