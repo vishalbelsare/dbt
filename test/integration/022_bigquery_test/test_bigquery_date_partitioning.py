@@ -12,6 +12,10 @@ class TestBigqueryDatePartitioning(DBTIntegrationTest):
     def models(self):
         return "test/integration/022_bigquery_test/dp-models"
 
+    @property
+    def profile_config(self):
+        return self.bigquery_profile()
+
     @attr(type='bigquery')
     def test__bigquery_date_partitioning(self):
         self.use_profile('bigquery')

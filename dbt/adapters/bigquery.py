@@ -165,6 +165,8 @@ class BigQueryAdapter(PostgresAdapter):
         existing = [(table.table_id, relation_types.get(table.table_type))
                     for table in all_tables]
 
+        cls.release_connection(profile, model_name)
+
         return dict(existing)
 
     @classmethod
@@ -175,6 +177,8 @@ class BigQueryAdapter(PostgresAdapter):
         dataset = cls.get_dataset(profile, schema, model_name)
         relation_object = dataset.table(relation)
         client.delete_table(relation_object)
+
+        cls.release_connection(profile, model_name)
 
     @classmethod
     def rename(cls, profile, schema, from_name, to_name, model_name=None):
@@ -204,6 +208,8 @@ class BigQueryAdapter(PostgresAdapter):
         with cls.exception_handler(profile, model_sql, model_name, model_name):
             client.create_table(view)
 
+        cls.release_connection(profile, model_name)
+
         return "CREATE VIEW"
 
     @classmethod
@@ -231,7 +237,11 @@ class BigQueryAdapter(PostgresAdapter):
         table_ref = dataset.table(identifier)
         table = google.cloud.bigquery.Table(table_ref)
         table.partitioning_type = 'DAY'
-        return client.create_table(table)
+
+        res = client.create_table(table)
+        cls.release_connection(profile, model_name)
+
+        return res
 
     @classmethod
     def materialize_as_table(cls, profile, dataset, model, model_sql,
@@ -309,6 +319,8 @@ class BigQueryAdapter(PostgresAdapter):
         if fetch:
             res = list(iterator)
 
+        cls.release_connection(profile, model_name)
+
         # If we get here, the query succeeded
         status = 'OK'
         return status, res
@@ -333,6 +345,8 @@ class BigQueryAdapter(PostgresAdapter):
         with cls.exception_handler(profile, 'create dataset', model_name):
             client.create_dataset(dataset)
 
+        cls.release_connection(profile, model_name)
+
     @classmethod
     def drop_tables_in_schema(cls, profile, dataset):
         conn = cls.get_connection(profile)
@@ -341,30 +355,37 @@ class BigQueryAdapter(PostgresAdapter):
         for table in client.list_tables(dataset):
             client.delete_table(table.reference)
 
+        cls.release_connection(profile, name=None)
+
     @classmethod
     def drop_schema(cls, profile, schema, model_name=None):
         logger.debug('Dropping schema "%s".', schema)
 
-        conn = cls.get_connection(profile)
-        client = conn.get('handle')
-
         if not cls.check_schema_exists(profile, schema, model_name):
             return
 
-        dataset = cls.get_dataset(profile, schema, model_name)
+        conn = cls.get_connection(profile)
+        client = conn.get('handle')
 
+        dataset = cls.get_dataset(profile, schema, model_name)
         with cls.exception_handler(profile, 'drop dataset', model_name):
             cls.drop_tables_in_schema(profile, dataset)
             client.delete_dataset(dataset)
+
+        cls.release_connection(profile, model_name)
 
     @classmethod
     def get_existing_schemas(cls, profile, model_name=None):
         conn = cls.get_connection(profile, model_name)
         client = conn.get('handle')
 
+        res = None
         with cls.exception_handler(profile, 'list dataset', model_name):
             all_datasets = client.list_datasets()
-            return [ds.dataset_id for ds in all_datasets]
+            res = [ds.dataset_id for ds in all_datasets]
+
+        cls.release_connection(profile, model_name)
+        return res
 
     @classmethod
     def get_columns_in_table(cls, profile, schema_name, table_name,
@@ -375,21 +396,25 @@ class BigQueryAdapter(PostgresAdapter):
     @classmethod
     def check_schema_exists(cls, profile, schema, model_name=None):
         conn = cls.get_connection(profile, model_name)
-
         client = conn.get('handle')
 
+        exists = None
         with cls.exception_handler(profile, 'get dataset', model_name):
             all_datasets = client.list_datasets()
-            return any([ds.dataset_id == schema for ds in all_datasets])
+            exists = any([ds.dataset_id == schema for ds in all_datasets])
+
+        cls.release_connection(profile, model_name)
+        return exists
 
     @classmethod
     def get_dataset(cls, profile, dataset_name, model_name=None):
         conn = cls.get_connection(profile, model_name)
-
         client = conn.get('handle')
+
         dataset_ref = client.dataset(dataset_name)
         dataset = google.cloud.bigquery.Dataset(dataset_ref)
 
+        cls.release_connection(profile, model_name)
         return dataset
 
     @classmethod
@@ -418,6 +443,7 @@ class BigQueryAdapter(PostgresAdapter):
     def quote_schema_and_table(cls, profile, schema, table, model_name=None):
         connection = cls.get_connection(profile)
         credentials = connection.get('credentials', {})
+        cls.release_connection(profile, name=None)
         project = credentials.get('project')
         return '{}.{}.{}'.format(cls.quote(project),
                                  cls.quote(schema),

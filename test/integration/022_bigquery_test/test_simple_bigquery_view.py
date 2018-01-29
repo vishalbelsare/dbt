@@ -18,6 +18,10 @@ class TestSimpleBigQueryRun(DBTIntegrationTest):
             'macro-paths': ['test/integration/022_bigquery_test/macros'],
         }
 
+    @property
+    def profile_config(self):
+        return self.bigquery_profile()
+
     @attr(type='bigquery')
     def test__bigquery_simple_run(self):
         self.use_profile('bigquery')
