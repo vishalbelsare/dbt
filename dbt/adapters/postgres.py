@@ -134,7 +134,7 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
     def get_existing_schemas(cls, profile, model_name=None):
         sql = "select distinct nspname from pg_namespace"
 
-        logger.info("DEBUG: type(cls) = '", type(cls), "'")
+        logger.info("DEBUG: type(cls) = '{}'".format(type(cls)))
 
         connection, cursor = cls.add_query(profile, sql, model_name,
                                            auto_begin=False)
