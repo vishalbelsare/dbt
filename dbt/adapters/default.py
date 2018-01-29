@@ -521,6 +521,10 @@ class DefaultAdapter(object):
             logger.debug('On %s: %s', connection_name, sql)
             pre = time.time()
 
+            logger.info("DEBUG: type(handle) = '", type(connection.get('handle')), "'")
+            logger.info("DEBUG: handle = '", connection.get('handle'), "'")
+            logger.info("DEBUG: type(cls) = '", type(cls), "'")
+
             cursor = connection.get('handle').cursor()
             cursor.execute(sql)
 
