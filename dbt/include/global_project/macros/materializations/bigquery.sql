@@ -7,6 +7,15 @@
   {%- set existing_type = existing.get(identifier) -%}
 
   {%- if existing_type is not none -%}
+    {%- if existing_type == 'table' and not flags.FULL_REFRESH -%}
+      {# this is only intended for date partitioned tables, but we cant see that field in the context #}
+      {% set error_message -%}
+        Trying to create model '{{ identifier }}' as a view, but it already exists as a table.
+        Either drop the '{{ schema }}.{{ identifier }}' table manually, or use --full-refresh
+      {%- endset %}
+      {{ exceptions.raise_compiler_error(error_message) }}
+    {%- endif -%}
+
     {{ adapter.drop(schema, identifier, existing_type) }}
   {%- endif -%}
 
