@@ -1,4 +1,5 @@
-from voluptuous import Schema, Required, All, Any, Length, ALLOW_EXTRA, Optional
+from voluptuous import Schema, Required, All, Any, Length, ALLOW_EXTRA
+from voluptuous import Optional
 
 import dbt.exceptions
 
