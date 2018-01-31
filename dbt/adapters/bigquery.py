@@ -15,7 +15,6 @@ import google.auth
 import google.oauth2
 import google.cloud.exceptions
 import google.cloud.bigquery
-import agate
 
 import time
 import uuid
@@ -406,6 +405,7 @@ class BigQueryAdapter(PostgresAdapter):
 
     @classmethod
     def convert_number_type(cls, agate_table, col_idx):
+        import agate
         decimals = agate_table.aggregate(agate.MaxPrecision(col_idx))
         return "float64" if decimals else "int64"
 

@@ -1,5 +1,4 @@
 import psycopg2
-import agate
 
 from contextlib import contextmanager
 
@@ -174,6 +173,7 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
 
     @classmethod
     def convert_number_type(cls, agate_table, col_idx):
+        import agate
         column = agate_table.columns[col_idx]
         precision = max_digits(column.values_without_nulls())
         # agate uses the term Precision but in this context, it is really the

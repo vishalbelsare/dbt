@@ -2,7 +2,6 @@ import copy
 import itertools
 import multiprocessing
 import time
-import agate
 
 from contextlib import contextmanager
 
@@ -676,6 +675,7 @@ class DefaultAdapter(object):
 
     @classmethod
     def convert_agate_type(cls, agate_table, col_idx):
+        import agate
         agate_type = agate_table.column_types[col_idx]
         conversions = [
             (agate.Text, cls.convert_text_type),
