@@ -22,6 +22,7 @@ import dbt.tracking
 import dbt.config as config
 import dbt.ui.printer
 import dbt.compat
+import dbt.deprecations
 
 from dbt.utils import ExitCodes
 
@@ -232,8 +233,14 @@ def invoke_dbt(parsed):
             return None
 
     flags.NON_DESTRUCTIVE = getattr(proj.args, 'non_destructive', False)
-    refresh_flags = ['full_refresh', 'drop_existing']
-    if any(getattr(proj.args, attr, False) for attr in refresh_flags):
+
+    arg_drop_existing = getattr(proj.args, 'drop_existing', False)
+    arg_full_refresh = getattr(proj.args, 'full_refresh', False)
+
+    if arg_drop_existing:
+        dbt.deprecations.warn('drop-existing')
+        flags.FULL_REFRESH = True
+    elif arg_full_refresh:
         flags.FULL_REFRESH = True
 
     logger.debug("running dbt with arguments %s", parsed)
