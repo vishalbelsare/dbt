@@ -44,6 +44,6 @@ setup(
         'voluptuous==0.10.5',
         'snowflake-connector-python==1.5.0',
         'colorama==0.3.9',
-        'google-cloud-bigquery==0.26.0',
+        'google-cloud-bigquery==0.29.0',
     ]
 )
