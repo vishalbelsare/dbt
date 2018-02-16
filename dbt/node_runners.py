@@ -276,15 +276,6 @@ class ModelRunner(CompileRunner):
         nodes = flat_graph.get('nodes', {}).values()
         hooks = get_nodes_by_tags(nodes, {hook_type}, NodeType.Operation)
 
-        # This will clear out an open transaction if there is one.
-        # on-run-* hooks should run outside of a transaction. This happens b/c
-        # psycopg2 automatically begins a transaction when a connection is
-        # created. TODO : Move transaction logic out of here, and implement
-        # a for-loop over these sql statements in jinja-land. Also, consider
-        # configuring psycopg2 (and other adapters?) to ensure that a
-        # transaction is only created if dbt initiates it.
-        conn_name = adapter.clear_transaction(profile)
-
         compiled_hooks = []
         for hook in hooks:
             compiled = cls.compile_node(adapter, project, hook, flat_graph)
@@ -292,17 +283,21 @@ class ModelRunner(CompileRunner):
             statement = compiled['wrapped_sql']
 
             hook_dict = dbt.hooks.get_hook_dict(statement)
+            hook_dict['unique_id'] = hook['unique_id']
             compiled_hooks.append(hook_dict)
 
         for hook in compiled_hooks:
-
             if dbt.flags.STRICT_MODE:
                 dbt.contracts.graph.parsed.validate_hook(hook)
 
+            hook_name = hook['unique_id']
             sql = hook.get('sql', '')
-            adapter.execute_one(profile, sql, model_name=conn_name,
-                                auto_begin=False)
-            adapter.release_connection(profile, conn_name)
+
+            if len(sql) > 0:
+                adapter.clear_transaction(profile, hook_name)
+                adapter.execute_one(profile, sql, model_name=hook_name,
+                                    auto_begin=False)
+                adapter.release_connection(profile, hook_name)
 
     @classmethod
     def safe_run_hooks(cls, project, adapter, flat_graph, hook_type):
