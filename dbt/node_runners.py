@@ -322,9 +322,12 @@ class ModelRunner(CompileRunner):
                 dbt.contracts.graph.parsed.validate_hook(hook)
 
             sql = hook.get('sql', '')
-            adapter.execute_one(profile, sql, model_name=model_name,
-                                auto_begin=False)
-            adapter.release_connection(profile, model_name)
+
+            if len(sql) > 0:
+                adapter.execute_one(profile, sql, model_name=model_name,
+                                    auto_begin=False)
+
+                adapter.release_connection(profile, model_name)
 
     @classmethod
     def safe_run_hooks(cls, project, adapter, flat_graph, hook_type):
