@@ -291,12 +291,13 @@ class ModelRunner(CompileRunner):
 
         nodes = flat_graph.get('nodes', {}).values()
         hooks = get_nodes_by_tags(nodes, {hook_type}, NodeType.Operation)
-        adapter.clear_transaction(profile)
 
         compiled_hooks = []
+        logger.info("DEBUG: HOOKS: Running hooks")
         for hook in hooks:
             model_name = hook.get('name')
 
+            logger.info("DEBUG: HOOKS: Preparing hook with connection {}".format(model_name))
             # This will clear out an open transaction if there is one.
             # on-run-* hooks should run outside of a transaction. This happens
             # b/c psycopg2 automatically begins a transaction when a connection
@@ -305,18 +306,22 @@ class ModelRunner(CompileRunner):
             # Also, consider configuring psycopg2 (and other adapters?) to
             # ensure that a transaction is only created if dbt initiates it.
             adapter.clear_transaction(profile, model_name)
+            logger.info("DEBUG: HOOKS: Cleared transaction for connection {}".format(model_name))
             compiled = cls._compile_node(adapter, project, hook, flat_graph)
             statement = compiled['wrapped_sql']
 
             hook_index = hook.get('index', len(hooks))
             hook_dict = dbt.hooks.get_hook_dict(statement, index=hook_index)
+            hook_dict['name'] = model_name
             compiled_hooks.append(hook_dict)
+            logger.info("DEBUG: HOOKS: Releasing connection {}".format(model_name))
             adapter.release_connection(profile, model_name)
 
         ordered_hooks = sorted(compiled_hooks, key=lambda h: h.get('index', 0))
 
         for hook in ordered_hooks:
-            model_name = compiled.get('name')
+            model_name = hook.get('name')
+            logger.info("DEBUG: HOOKS: Running hook with connection {}".format(model_name))
 
             if dbt.flags.STRICT_MODE:
                 dbt.contracts.graph.parsed.validate_hook(hook)
@@ -324,10 +329,15 @@ class ModelRunner(CompileRunner):
             sql = hook.get('sql', '')
 
             if len(sql) > 0:
+                logger.info("DEBUG: HOOKS: Executing hook for {}".format(model_name))
                 adapter.execute_one(profile, sql, model_name=model_name,
                                     auto_begin=False)
+                logger.info("DEBUG: HOOKS: Releasing connection for {}".format(model_name))
 
                 adapter.release_connection(profile, model_name)
+                logger.info("DEBUG: HOOKS: Released connection for {}".format(model_name))
+            else:
+                logger.info("DEBUG: HOOKS: Skipped hook for {} -- sql was empty".format(model_name))
 
     @classmethod
     def safe_run_hooks(cls, project, adapter, flat_graph, hook_type):
