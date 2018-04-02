@@ -269,7 +269,14 @@ def try_or_compiler_error(model):
 
 
 def _return(value):
-    raise dbt.exceptions.MacroReturn(value)
+   raise dbt.exceptions.MacroReturn(value)
+
+
+def get_this_relation(db_wrapper, profile, model):
+    table_name = dbt.utils.model_immediate_name(
+            model, dbt.flags.NON_DESTRUCTIVE)
+    return db_wrapper.adapter.Relation.create_from_node(profile, model,
+                                                        table_name=table_name)
 
 
 def generate(model, project, flat_graph, provider=None):
@@ -324,8 +331,7 @@ def generate(model, project, flat_graph, provider=None):
         "fromjson": fromjson,
         "tojson": tojson,
         "target": target,
-        # TODO!!
-        "this": db_wrapper.adapter.Relation('table', schema=model['schema'], identifier="{}__dbt_tmp".format(model['name'])),
+        "this": get_this_relation(db_wrapper, profile, model),
         "try_or_compiler_error": try_or_compiler_error(model)
     })
 

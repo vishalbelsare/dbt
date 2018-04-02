@@ -8,6 +8,8 @@ import dbt.context.common
 import dbt.flags
 import dbt.utils
 
+from dbt.adapters.relations.ephemeral import EphemeralRelation
+
 from dbt.logger import GLOBAL_LOGGER as logger  # noqa
 
 
@@ -48,12 +50,13 @@ def ref(model, project, profile, flat_graph):
                                            target_model_name,
                                            target_model_package)
 
-        if dbt.utils.get_materialization(target_model) == 'ephemeral':
+        is_ephemeral = dbt.utils.get_materialization(target_model) == 'ephemeral'
+        if is_ephemeral:
             model['extra_ctes'][target_model_id] = None
-
-        adapter = get_adapter(profile)
-        #TODO !!!!
-        return adapter.Relation('table', schema=target_model['schema'], identifier=target_model['name'])
+            return EphemeralRelation.create_from_node(profile, target_model)
+        else:
+            adapter = get_adapter(profile)
+            return adapter.Relation.create_from_node(profile, target_model)
 
     return do_ref
 

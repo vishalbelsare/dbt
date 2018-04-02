@@ -40,6 +40,11 @@ class DefaultRelation(object):
     def name(self):
         return self.identifier
 
+    # Here for compatibility with old Relation interface
+    @property
+    def table(self):
+        return self._table_name
+
     def should_quote(self, part):
         return self._quoting.get(part)
 
@@ -54,15 +59,6 @@ class DefaultRelation(object):
     def quoting(self):
         return self._quoting
 
-    @classmethod
-    def create_from_node(cls, profile, adapter, node):
-        import ipdb; ipdb.set_trace()
-        pass
-
-    @classmethod
-    def create_from_parts(cls, database=None, schema=None, identifier=None):
-        return cls(database=database, schema=schema, identifier=identifier)
-
     def quote(self, database=None, schema=None, identifier=None):
         raw_policy = {
             "database": database,
@@ -74,7 +70,7 @@ class DefaultRelation(object):
         policy = self.quoting.copy()
         policy.update(policy_update)
 
-        return type(self)(self._type,
+        return type(self)(
                    database=self.database,
                    schema=self.schema,
                    identifier=self.identifier,
@@ -92,7 +88,7 @@ class DefaultRelation(object):
         policy = self.inclusion.copy()
         policy.update(policy_update)
 
-        return type(self)(self._type,
+        return type(self)(
                    database=self.database,
                    schema=self.schema,
                    identifier=self.identifier,
@@ -129,20 +125,32 @@ class DefaultRelation(object):
         return '{quote_char}{identifier}{quote_char}'.format(
                     quote_char=cls.QuoteCharacter, identifier=s)
 
-    def __init__(self, relation_type=None, database=None, schema=None,
-                 identifier=None, quoting=None, include=None):
+    @classmethod
+    def create_from_node(cls, profile, node, **kwargs):
+        return cls(
+            database=profile['dbname'],
+            schema=node['schema'],
+            identifier=node['name'],
+            **kwargs
+        )
 
-        if relation_type not in DefaultRelation.RelationTypes:
-            # TODO - compiler error
-            raise RuntimeError("Relation Type {} is invalid".format(
-                relation_type))
+    @classmethod
+    def create_from_parts(cls, database=None, schema=None, identifier=None):
+        return cls(database=database, schema=schema, identifier=identifier)
 
-        self._type = relation_type
+    def __init__(self, database=None, schema=None, identifier=None,
+                 table_name=None, quoting=None, include=None):
 
         self._database = database
         self._schema = schema
         self._identifier = identifier
-        self._type = relation_type
+
+        # This field is deprecated, but exists for backwards compatibility
+        # with the existing implementation of Relations
+        if table_name is None:
+            self._table_name = identifier
+        else:
+            self._table_name = table_name
 
         self._quoting = self.QuotePolicy.copy()
         self._quoting.update(quoting or {})
@@ -151,7 +159,7 @@ class DefaultRelation(object):
         self._include.update(include or {})
 
     def __repr__(self):
-        return "<{} {}: {}>".format(self.__class__.__name__, self._type, self.render())
+        return "<{} {}>".format(self.__class__.__name__, self.render())
 
     def __str__(self):
         return self.render()

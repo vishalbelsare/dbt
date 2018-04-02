@@ -18,8 +18,7 @@ def ref(model, project, profile, flat_graph):
             dbt.exceptions.ref_invalid_args(model, args)
 
         adapter = get_adapter(profile)
-        #TODO
-        return adapter.Relation('table', schema=model['schema'], identifier=model['name'])
+        return adapter.Relation.create_from_node(profile, model)
 
     return ref
 

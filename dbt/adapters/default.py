@@ -132,28 +132,28 @@ class DefaultAdapter(object):
         return dbt.clients.agate_helper.table_from_data(data)
 
     @classmethod
-    def drop(cls, profile, relation, model_name=None):
-        if relation._type == 'view':
+    def drop(cls, profile, rel_type, relation, model_name=None):
+        if rel_type == 'view':
             return cls.drop_view(profile, relation, model_name)
-        elif relation._type == 'table':
+        elif rel_type == 'table':
             return cls.drop_table(profile, relation, model_name)
         else:
             raise RuntimeError(
                 "Invalid relation_type '{}'"
-                .format(relation._type))
+                .format(rel_type))
 
     @classmethod
-    def drop_relation(cls, profile, relation, model_name):
-        sql = 'drop {} if exists {} cascade'.format(relation._type, relation)
+    def drop_relation(cls, profile, rel_type, relation, model_name):
+        sql = 'drop {} if exists {} cascade'.format(rel_type, relation)
         connection, cursor = cls.add_query(profile, sql, model_name)
 
     @classmethod
     def drop_view(cls, profile, relation, model_name):
-        cls.drop_relation(profile, relation, model_name)
+        cls.drop_relation(profile, 'view', relation, model_name)
 
     @classmethod
     def drop_table(cls, profile, relation, model_name):
-        cls.drop_relation(profile, relation, model_name)
+        cls.drop_relation(profile, 'table', relation, model_name)
 
     @classmethod
     def truncate(cls, profile, schema, table, model_name=None):

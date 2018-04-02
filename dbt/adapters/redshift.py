@@ -85,7 +85,7 @@ class RedshiftAdapter(PostgresAdapter):
             cls.begin(profile, connection.get('name'))
 
             to_return = super(PostgresAdapter, cls).drop(
-                profile, relation, model_name)
+                profile, 'table', relation, model_name)
 
             cls.commit(profile, connection)
             cls.begin(profile, connection.get('name'))
