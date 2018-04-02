@@ -35,7 +35,7 @@
   {%- elif should_truncate -%}
     {{ adapter.truncate(schema, identifier) }}
   {%- elif should_drop -%}
-    {{ adapter.drop(schema, identifier, existing_type) }}
+    {{ adapter.drop(Relation(existing_type, schema=schema, identifier=identifier)) }}
   {%- endif %}
 
   {{ run_hooks(pre_hooks, inside_transaction=False) }}

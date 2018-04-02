@@ -300,6 +300,7 @@ def generate(model, project, flat_graph, provider=None):
 
     context = dbt.utils.merge(context, {
         "adapter": db_wrapper,
+        "Relation": db_wrapper.adapter.Relation,
         "column": dbt.schema.Column,
         "config": provider.Config(model),
         "env_var": _env_var,
@@ -323,7 +324,8 @@ def generate(model, project, flat_graph, provider=None):
         "fromjson": fromjson,
         "tojson": tojson,
         "target": target,
-        "this": dbt.utils.Relation(profile, adapter, model, use_temp=True),
+        # TODO!!
+        "this": db_wrapper.adapter.Relation('table', schema=model['schema'], identifier="{}__dbt_tmp".format(model['name'])),
         "try_or_compiler_error": try_or_compiler_error(model)
     })
 

@@ -69,7 +69,7 @@ class RedshiftAdapter(PostgresAdapter):
         return sql
 
     @classmethod
-    def drop(cls, profile, schema, relation, relation_type, model_name=None):
+    def drop(cls, profile, relation, model_name=None):
         global drop_lock
 
         to_return = None
@@ -85,7 +85,7 @@ class RedshiftAdapter(PostgresAdapter):
             cls.begin(profile, connection.get('name'))
 
             to_return = super(PostgresAdapter, cls).drop(
-                profile, schema, relation, relation_type, model_name)
+                profile, relation, model_name)
 
             cls.commit(profile, connection)
             cls.begin(profile, connection.get('name'))

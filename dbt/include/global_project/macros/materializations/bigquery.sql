@@ -77,7 +77,7 @@
       if it is not a table. If it _is_ already a table, then we can overwrite it without downtime
   #}
   {%- if existing_type is not none and existing_type != 'table' -%}
-      {{ adapter.drop(schema, identifier, existing_type) }}
+      {{ adapter.drop(Relation(existing_type, schema=schema, identifier=identifier)) }}
   {%- endif -%}
 
   -- build model

@@ -12,7 +12,6 @@ from dbt.compat import basestring
 from dbt.logger import GLOBAL_LOGGER as logger
 from dbt.node_types import NodeType
 from dbt.clients import yaml_helper
-from dbt.relation import Relation
 
 
 DBTConfigKeys = [

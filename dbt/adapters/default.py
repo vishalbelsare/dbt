@@ -13,72 +13,12 @@ from dbt.contracts.connection import validate_connection
 from dbt.logger import GLOBAL_LOGGER as logger
 from dbt.schema import Column
 
+import dbt.adapters.relations
+import dbt.adapters.relations.default
 
 lock = multiprocessing.Lock()
 connections_in_use = {}
 connections_available = []
-
-
-class DefaultRelation(object):
-    @classmethod
-    def create_from_node(cls, profile, adapter, node):
-        pass
-
-    @classmethod
-    def create_from_parts(cls, database=None, schema=None, identifier=None):
-        return cls(database=database, schema=schema, identifier=identifier)
-
-    @classmethod
-    def quote_identifier(cls, identifier):
-        return '"{}"'.format(identifier)
-
-    def quote(self, database=None, schema=None, identifier=None):
-        new = copy.deepcopy(self)
-
-        if database is not None:
-            new.should_quote_database = database
-
-        if schema is not None:
-            new.should_quote_schema = schema
-
-        if identifier is not None:
-            new.should_quote_identifier = identifier
-
-        return new
-
-    def render(self):
-        parts = []
-
-        if database is not None and self.include_database:
-            parts.append(self.quote_if(database, self.should_quote_database))
-
-        if schema is not None and self.include_schema:
-            parts.append(self.quote_if(schema, self.should_quote_schema))
-
-        parts.append(self.quote_if(identifier, self.should_quote_identifier))
-
-        return '.'.join(parts)
-
-    # private
-    @classmethod
-    def quote_if(cls, identifier, should_quote):
-        if should_quote:
-            return cls.quote(identifier)
-
-        return identifier
-
-    def __init__(self, database=None, schema=None, identifier=None, node=None,
-                 **kwargs):
-        self.database = database
-        self.schema = schema
-        self.identifier = identifier
-
-        self.should_quote_database = False
-        self.should_quote_schema = False
-        self.should_quote_identifier = False
-
-        self.include_database = False
-        self.include_schema = True
 
 
 
@@ -105,6 +45,8 @@ class DefaultAdapter(object):
         "get_result_from_cursor",
         "quote",
     ]
+
+    Relation = dbt.adapters.relations.default.DefaultRelation
 
     ###
     # ADAPTER-SPECIFIC FUNCTIONS -- each of these must be overridden in
@@ -190,30 +132,28 @@ class DefaultAdapter(object):
         return dbt.clients.agate_helper.table_from_data(data)
 
     @classmethod
-    def drop(cls, profile, schema, relation, relation_type, model_name=None):
-        if relation_type == 'view':
-            return cls.drop_view(profile, schema, relation, model_name)
-        elif relation_type == 'table':
-            return cls.drop_table(profile, schema, relation, model_name)
+    def drop(cls, profile, relation, model_name=None):
+        if relation._type == 'view':
+            return cls.drop_view(profile, relation, model_name)
+        elif relation._type == 'table':
+            return cls.drop_table(profile, relation, model_name)
         else:
             raise RuntimeError(
                 "Invalid relation_type '{}'"
-                .format(relation_type))
+                .format(relation._type))
 
     @classmethod
-    def drop_relation(cls, profile, schema, rel_name, rel_type, model_name):
-        relation = cls.render_relation(profile, schema, rel_name)
-        sql = 'drop {} if exists {} cascade'.format(rel_type, relation)
-
+    def drop_relation(cls, profile, relation, model_name):
+        sql = 'drop {} if exists {} cascade'.format(relation._type, relation)
         connection, cursor = cls.add_query(profile, sql, model_name)
 
     @classmethod
-    def drop_view(cls, profile, schema, view, model_name):
-        cls.drop_relation(profile, schema, view, 'view', model_name)
+    def drop_view(cls, profile, relation, model_name):
+        cls.drop_relation(profile, relation, model_name)
 
     @classmethod
-    def drop_table(cls, profile, schema, table, model_name):
-        cls.drop_relation(profile, schema, table, 'table', model_name)
+    def drop_table(cls, profile, relation, model_name):
+        cls.drop_relation(profile, relation, model_name)
 
     @classmethod
     def truncate(cls, profile, schema, table, model_name=None):

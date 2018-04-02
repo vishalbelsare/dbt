@@ -172,12 +172,12 @@ class BigQueryAdapter(PostgresAdapter):
         return dict(existing)
 
     @classmethod
-    def drop(cls, profile, schema, relation, relation_type, model_name=None):
+    def drop(cls, profile, relation, model_name=None):
         conn = cls.get_connection(profile, model_name)
         client = conn.get('handle')
 
-        dataset = cls.get_dataset(profile, schema, model_name)
-        relation_object = dataset.table(relation)
+        dataset = cls.get_dataset(profile, relation._schema, model_name)
+        relation_object = dataset.table(relation._identifier)
         client.delete_table(relation_object)
 
     @classmethod

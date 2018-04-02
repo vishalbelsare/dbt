@@ -1,4 +1,3 @@
-import dbt.utils
 import dbt.exceptions
 
 import dbt.context.common
@@ -19,7 +18,8 @@ def ref(model, project, profile, flat_graph):
             dbt.exceptions.ref_invalid_args(model, args)
 
         adapter = get_adapter(profile)
-        return dbt.utils.Relation(profile, adapter, model)
+        #TODO
+        return adapter.Relation('table', schema=model['schema'], identifier=model['name'])
 
     return ref
 
