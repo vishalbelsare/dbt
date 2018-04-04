@@ -21,12 +21,12 @@ connections_in_use = {}
 connections_available = []
 
 
-
 class DefaultAdapter(object):
 
     requires = {}
 
     context_functions = [
+        # deprecated -- use versions that take relations instead
         "already_exists",
         "get_columns_in_table",
         "get_missing_columns",
@@ -34,10 +34,19 @@ class DefaultAdapter(object):
         "rename",
         "drop",
         "truncate",
-        "add_query",
         "expand_target_column_types",
+
+        # just deprecated. going away in a future release
         "quote_schema_and_table",
-        "execute"
+
+        # versions of adapter functions that take / return Relations
+        "list_relations",
+        "get_relation",
+        "drop_relation",
+
+
+        "execute",
+        "add_query",
     ]
 
     raw_functions = [
@@ -82,8 +91,14 @@ class DefaultAdapter(object):
 
     @classmethod
     def query_for_existing(cls, profile, schemas, model_name=None):
-        raise dbt.exceptions.NotImplementedException(
-            '`query_for_existing` is not implemented for this adapter!')
+        if not isinstance(schemas, (list, tuple)):
+            schemas = [schemas]
+
+        all_relations = cls.list_relations(profile, model_name)
+
+        return {relation.identifier: relation.type
+                for relation in all_relations
+                if relation.schema in schemas}
 
     @classmethod
     def get_existing_schemas(cls, profile, model_name=None):
@@ -132,28 +147,20 @@ class DefaultAdapter(object):
         return dbt.clients.agate_helper.table_from_data(data)
 
     @classmethod
-    def drop(cls, profile, rel_type, relation, model_name=None):
-        if rel_type == 'view':
-            return cls.drop_view(profile, relation, model_name)
-        elif rel_type == 'table':
-            return cls.drop_table(profile, relation, model_name)
-        else:
-            raise RuntimeError(
-                "Invalid relation_type '{}'"
-                .format(rel_type))
+    def drop(cls, profile, schema, relation, relation_type, model_name=None):
+        # add deprecation warning
+        identifier = relation
+        relation = cls.Relation(schema=schema,
+                                identifier=identifier,
+                                type=relation_type)
+
+        return cls.drop_relation(profile, relation, model_name)
 
     @classmethod
-    def drop_relation(cls, profile, rel_type, relation, model_name):
-        sql = 'drop {} if exists {} cascade'.format(rel_type, relation)
+    def drop_relation(cls, profile, relation, model_name=None):
+        sql = 'drop {} if exists {} cascade'.format(relation.type, relation)
+
         connection, cursor = cls.add_query(profile, sql, model_name)
-
-    @classmethod
-    def drop_view(cls, profile, relation, model_name):
-        cls.drop_relation(profile, 'view', relation, model_name)
-
-    @classmethod
-    def drop_table(cls, profile, relation, model_name):
-        cls.drop_relation(profile, 'table', relation, model_name)
 
     @classmethod
     def truncate(cls, profile, schema, table, model_name=None):
@@ -256,6 +263,37 @@ class DefaultAdapter(object):
 
                 cls.alter_column_type(profile, to_schema, to_table,
                                       column_name, new_type, model_name)
+
+    ###
+    # RELATIONS
+    ###
+    @classmethod
+    def list_relations(cls, profile, model_name=None):
+        raise dbt.exceptions.NotImplementedException(
+            '`list_relations` is not implemented for this adapter!')
+
+    @classmethod
+    def get_relation(cls, profile, **kwargs):
+        # make sure that if this returns multiple relations we do
+        # something smart
+        #   > adapter.get_relation('orders')  -- orders exists in two schemas
+        relations = cls.list_relations()
+
+        matches = []
+
+        for relation in relations:
+            if relation.matches(**kwargs):
+                matches.append(relation)
+
+        if len(matches) > 1:
+            dbt.exceptions.get_relation_returned_multiple_results(
+                kwargs, matches)
+
+        elif matches:
+            return matches[0]
+
+        return None
+
 
     ###
     # SANE ANSI SQL DEFAULTS

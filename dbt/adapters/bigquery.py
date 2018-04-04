@@ -27,6 +27,7 @@ class BigQueryAdapter(PostgresAdapter):
         "query_for_existing",
         "execute_model",
         "drop",
+        "drop_relation",
         "execute",
         "quote_schema_and_table",
         "make_date_partitioned_table"
@@ -152,13 +153,23 @@ class BigQueryAdapter(PostgresAdapter):
         if not isinstance(schemas, (list, tuple)):
             schemas = [schemas]
 
-        conn = cls.get_connection(profile, model_name)
-        client = conn.get('handle')
+        all_relations = []
 
-        all_tables = []
         for schema in schemas:
-            dataset = cls.get_dataset(profile, schema, model_name)
-            all_tables.extend(client.list_tables(dataset))
+            all_relations.extend(cls.list_relations(
+                profile, schema, model_name))
+
+        return {relation.identifier: relation.type
+                for relation in all_relations}
+
+    @classmethod
+    def list_relations(cls, profile, dataset, model_name=None):
+        connection = cls.get_connection(profile, model_name)
+        credentials = connection.get('credentials', {})
+        client = connection.get('handle')
+
+        bigquery_dataset = cls.get_dataset(profile, dataset, model_name)
+        all_tables = client.list_tables(bigquery_dataset)
 
         relation_types = {
             'TABLE': 'table',
@@ -166,13 +177,15 @@ class BigQueryAdapter(PostgresAdapter):
             'EXTERNAL': 'external'
         }
 
-        existing = [(table.table_id, relation_types.get(table.table_type))
-                    for table in all_tables]
-
-        return dict(existing)
+        return [cls.Relation.create_from_parts(
+            project=credentials.get('project'),
+            dataset=dataset,
+            identfier=table.table_id,
+            type=relation_types.get(table.table_type))
+                for table in all_tables]
 
     @classmethod
-    def drop(cls, profile, relation, model_name=None):
+    def drop_relation(cls, profile, relation, model_name=None):
         conn = cls.get_connection(profile, model_name)
         client = conn.get('handle')
 

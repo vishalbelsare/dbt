@@ -33,6 +33,11 @@ class SeedDropExistingDeprecation(DBTDeprecation):
   will be removed in a future version of dbt."""
 
 
+class OldStyleAdapterFunctionsDeprecations(DBTDeprecation):
+    name = 'old-style-adapter-functions'
+    description = """Use the new version of this thing?"""
+
+
 def warn(name, *args, **kwargs):
     if name not in deprecations:
         # this should (hopefully) never happen

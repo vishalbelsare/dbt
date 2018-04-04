@@ -291,3 +291,11 @@ def raise_dep_not_found(node, node_description, required_pkg):
         'Error while parsing {}.\nThe required package "{}" was not found. '
         'Is the package installed?\nHint: You may need to run '
         '`dbt deps`.'.format(node_description, required_pkg), node=node)
+
+
+def get_relation_returned_multiple_results(kwargs, matches):
+    raise_compiler_error(
+        'get_relation returned more than one relation with the given args. '
+        'Please specify a database or schema to narrow down the result set.'
+        '\n{}\n\n{}'
+        .format(kwargs, matches))

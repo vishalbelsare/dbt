@@ -108,28 +108,23 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
         return connection, cursor
 
     @classmethod
-    def query_for_existing(cls, profile, schemas, model_name=None):
-        if not isinstance(schemas, (list, tuple)):
-            schemas = [schemas]
-
-        schema_list = ",".join(["'{}'".format(schema) for schema in schemas])
-
+    def list_relations(cls, profile, model_name=None):
         sql = """
-        select tablename as name, 'table' as type from pg_tables
-        where schemaname in ({schema_list})
+        select tablename as name, schemaname as schema, 'table' as type from pg_tables
         union all
-        select viewname as name, 'view' as type from pg_views
-        where schemaname in ({schema_list})
-        """.format(schema_list=schema_list).strip()  # noqa
+        select viewname as name, schemaname as schema, 'view' as type from pg_views
+        """.strip()  # noqa
 
         connection, cursor = cls.add_query(profile, sql, model_name,
                                            auto_begin=False)
 
         results = cursor.fetchall()
 
-        existing = [(name, relation_type) for (name, relation_type) in results]
-
-        return dict(existing)
+        return [cls.Relation.create_from_parts(database=profile.get('dbname'),
+                                               schema=schema,
+                                               identifier=name,
+                                               type=type)
+                for (name, schema, type) in results]
 
     @classmethod
     def get_existing_schemas(cls, profile, model_name=None):
@@ -207,7 +202,7 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
     def reset_csv_table(cls, profile, schema, table_name, agate_table,
                         full_refresh=False):
         if full_refresh:
-            cls.drop_table(profile, schema, table_name, None)
+            cls.drop(profile, schema, table_name, 'table', None)
             cls.create_csv_table(profile, schema, table_name, agate_table)
         else:
             cls.truncate(profile, schema, table_name)

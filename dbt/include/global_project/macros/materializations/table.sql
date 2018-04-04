@@ -12,7 +12,7 @@
     {% if existing_type == 'table' -%}
       {{ adapter.truncate(schema, identifier) }}
     {% elif existing_type == 'view' -%}
-      {{ adapter.drop(existing_type, Relation(schema=schema, identifier=identifier)) }}
+      {{ adapter.drop_relation(Relation(schema=schema, identifier=identifier, type=existing_type)) }}
     {%- endif %}
   {%- endif %}
 

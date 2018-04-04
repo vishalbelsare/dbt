@@ -15,7 +15,7 @@
       {{ exceptions.raise_compiler_error(error_message) }}
     {%- endif -%}
 
-    {{ adapter.drop(existing_type, Relation(schema=schema, identifier=identifier)) }}
+    {{ adapter.drop_relation(Relation(schema=schema, identifier=identifier, type=existing_type)) }}
   {%- endif -%}
 
   -- build model
@@ -77,7 +77,7 @@
       if it is not a table. If it _is_ already a table, then we can overwrite it without downtime
   #}
   {%- if existing_type is not none and existing_type != 'table' -%}
-      {{ adapter.drop(existing_type, Relation(schema=schema, identifier=identifier)) }}
+      {{ adapter.drop_relation(Relation(schema=schema, identifier=identifier, type=existing_type)) }}
   {%- endif -%}
 
   -- build model

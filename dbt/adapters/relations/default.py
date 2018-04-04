@@ -1,6 +1,8 @@
+from dbt.utils import merge
 
 
-# This should implement schema/name props for compatibility with old relation obj
+# This should implement schema/name props for compatibility with old relation
+# obj
 class DefaultRelation(object):
     QuoteCharacter = '"'
     QuotePolicy = {
@@ -23,9 +25,25 @@ class DefaultRelation(object):
         View
     ]
 
+    def matches(self, database=None, schema=None, identifier=None):
+        if database is not None and database != self.database:
+            return False
+
+        if schema is not None and schema != self.schema:
+            return False
+
+        if identifier is not None and identifier != self.identifier:
+            return False
+
+        return True
+
     @property
     def database(self):
         return self._database
+
+    @property
+    def type(self):
+        return self._type
 
     @property
     def schema(self):
@@ -44,6 +62,14 @@ class DefaultRelation(object):
     @property
     def table(self):
         return self._table_name
+
+    @property
+    def is_table(self):
+        return self.type == self.Table
+
+    @property
+    def is_view(self):
+        return self.type == self.View
 
     def should_quote(self, part):
         return self._quoting.get(part)
@@ -83,10 +109,11 @@ class DefaultRelation(object):
             "schema": schema,
             "identifier": identifier
         }
+        raw_policy = {k: v for (k, v) in raw_policy.items() if v is not None}
 
-        policy_update = {k: v for (k,v) in raw_policy.items() if v is not None}
-        policy = self.inclusion.copy()
-        policy.update(policy_update)
+        policy = merge(
+            self.inclusion,
+            raw_policy)
 
         return type(self)(
                    database=self.database,
@@ -106,7 +133,6 @@ class DefaultRelation(object):
 
         if self.identifier is not None and self.should_include('identifier'):
             parts.append(self.quote_if(self.identifier, self.should_quote('identifier')))
-
 
         if len(parts) == 0:
             # TODO
@@ -135,15 +161,17 @@ class DefaultRelation(object):
         )
 
     @classmethod
-    def create_from_parts(cls, database=None, schema=None, identifier=None):
-        return cls(database=database, schema=schema, identifier=identifier)
+    def create_from_parts(cls, **kwargs):
+        # just use constructor
+        return cls(**kwargs)
 
     def __init__(self, database=None, schema=None, identifier=None,
-                 table_name=None, quoting=None, include=None):
+                 table_name=None, type=None, quoting=None, include=None):
 
         self._database = database
         self._schema = schema
         self._identifier = identifier
+        self._type = type
 
         # This field is deprecated, but exists for backwards compatibility
         # with the existing implementation of Relations
@@ -157,6 +185,8 @@ class DefaultRelation(object):
 
         self._include = self.IncludePolicy.copy()
         self._include.update(include or {})
+
+        # validate
 
     def __repr__(self):
         return "<{} {}>".format(self.__class__.__name__, self.render())
