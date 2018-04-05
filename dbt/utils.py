@@ -388,3 +388,8 @@ def parse_cli_vars(var_string):
         logger.error(
                 "The YAML provided in the --vars argument is not valid.\n")
         raise
+
+
+def filter_null_values(input):
+    return dict((k, v) for (k, v) in input.items()
+                if v is not None)

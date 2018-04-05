@@ -2,11 +2,10 @@
 
   {%- set identifier = model['name'] -%}
   {%- set non_destructive_mode = (flags.NON_DESTRUCTIVE == True) -%}
-  {%- set existing = adapter.query_for_existing(schema) -%}
-  {%- set existing_type = get_existing_relation_type(existing, identifier) -%}
+  {%- set existing = adapter.get_existing(dataset=schema, identifier=identifier) -%}
 
-  {%- if existing_type is not none -%}
-    {%- if existing_type == 'table' and not flags.FULL_REFRESH -%}
+  {%- if existing is not none -%}
+    {%- if existing.is_table and not flags.FULL_REFRESH -%}
       {# this is only intended for date partitioned tables, but we cant see that field in the context #}
       {% set error_message -%}
         Trying to create model '{{ identifier }}' as a view, but it already exists as a table.
@@ -15,7 +14,7 @@
       {{ exceptions.raise_compiler_error(error_message) }}
     {%- endif -%}
 
-    {{ adapter.drop_relation(Relation(schema=schema, identifier=identifier, type=existing_type)) }}
+    {{ adapter.drop_relation(Relation(schema=schema, identifier=identifier, type=existing.type)) }}
   {%- endif -%}
 
   -- build model
@@ -57,8 +56,7 @@
 
   {%- set identifier = model['name'] -%}
   {%- set non_destructive_mode = (flags.NON_DESTRUCTIVE == True) -%}
-  {%- set existing = adapter.query_for_existing(schema) -%}
-  {%- set existing_type = get_existing_relation_type(existing, identifier) -%}
+  {%- set existing = adapter.get_existing(dataset=schema, identifier=identifier) -%}
   {%- set verbose = config.get('verbose', False) -%}
   {%- set partitions = config.get('partitions') -%}
 
@@ -76,13 +74,13 @@
       Since dbt uses WRITE_TRUNCATE mode for tables, we only need to drop this thing
       if it is not a table. If it _is_ already a table, then we can overwrite it without downtime
   #}
-  {%- if existing_type is not none and existing_type != 'table' -%}
-      {{ adapter.drop_relation(Relation(schema=schema, identifier=identifier, type=existing_type)) }}
+  {%- if existing is not none and not existing.is_table -%}
+      {{ adapter.drop_relation(Relation(schema=schema, identifier=identifier, type=existing.type)) }}
   {%- endif -%}
 
   -- build model
   {% if partitions %}
-      {% set result = make_date_partitioned_table(model, partitions, (existing_type != 'table'), verbose) %}
+      {% set result = make_date_partitioned_table(model, partitions, (!existing.is_table), verbose) %}
   {% else %}
       {% set result = adapter.execute_model(model, 'table') %}
   {% endif %}

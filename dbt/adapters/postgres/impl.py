@@ -120,10 +120,10 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
 
         results = cursor.fetchall()
 
-        return [cls.Relation.create_from_parts(database=profile.get('dbname'),
-                                               schema=schema,
-                                               identifier=name,
-                                               type=type)
+        return [cls.Relation(database=profile.get('dbname'),
+                             schema=schema,
+                             identifier=name,
+                             type=type)
                 for (name, schema, type) in results]
 
     @classmethod

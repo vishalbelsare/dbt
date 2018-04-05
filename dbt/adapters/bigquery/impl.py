@@ -177,10 +177,10 @@ class BigQueryAdapter(PostgresAdapter):
             'EXTERNAL': 'external'
         }
 
-        return [cls.Relation.create_from_parts(
+        return [cls.Relation(
             project=credentials.get('project'),
             dataset=dataset,
-            identfier=table.table_id,
+            identifier=table.table_id,
             type=relation_types.get(table.table_type))
                 for table in all_tables]
 

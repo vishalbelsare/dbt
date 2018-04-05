@@ -13,8 +13,7 @@ from dbt.contracts.connection import validate_connection
 from dbt.logger import GLOBAL_LOGGER as logger
 from dbt.schema import Column
 
-import dbt.adapters.relations
-import dbt.adapters.relations.default
+from dbt.adapters.default.relation import DefaultRelation
 
 lock = multiprocessing.Lock()
 connections_in_use = {}
@@ -55,7 +54,7 @@ class DefaultAdapter(object):
         "quote",
     ]
 
-    Relation = dbt.adapters.relations.default.DefaultRelation
+    Relation = DefaultRelation
 
     ###
     # ADAPTER-SPECIFIC FUNCTIONS -- each of these must be overridden in
@@ -274,9 +273,6 @@ class DefaultAdapter(object):
 
     @classmethod
     def get_relation(cls, profile, **kwargs):
-        # make sure that if this returns multiple relations we do
-        # something smart
-        #   > adapter.get_relation('orders')  -- orders exists in two schemas
         relations = cls.list_relations()
 
         matches = []
