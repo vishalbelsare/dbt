@@ -393,3 +393,7 @@ def parse_cli_vars(var_string):
 def filter_null_values(input):
     return dict((k, v) for (k, v) in input.items()
                 if v is not None)
+
+
+def add_ephemeral_model_prefix(s):
+    return '__dbt__CTE__{}'.format(s)

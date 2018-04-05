@@ -34,6 +34,7 @@ class DatabaseWrapper(object):
         self.model = model
         self.adapter = adapter
         self.profile = profile
+        self.Relation = adapter.Relation
 
         # Fun with metaprogramming
         # Most adapter functions take `profile` as the first argument, and

@@ -1,14 +1,10 @@
-import json
-
 from dbt.adapters.factory import get_adapter
-from dbt.compat import basestring
+from dbt.node_types import NodeType
+from dbt.utils import get_materialization, add_ephemeral_model_prefix
 
 import dbt.clients.jinja
 import dbt.context.common
 import dbt.flags
-import dbt.utils
-
-from dbt.adapters.relations.ephemeral import EphemeralRelation
 
 from dbt.logger import GLOBAL_LOGGER as logger  # noqa
 
@@ -50,12 +46,17 @@ def ref(model, project, profile, flat_graph):
                                            target_model_name,
                                            target_model_package)
 
-        is_ephemeral = dbt.utils.get_materialization(target_model) == 'ephemeral'
+        is_ephemeral = (get_materialization(target_model) == 'ephemeral')
+
+        adapter = get_adapter(profile)
+
         if is_ephemeral:
             model['extra_ctes'][target_model_id] = None
-            return EphemeralRelation.create_from_node(profile, target_model)
+            return adapter.Relation.create(
+                type=adapter.Relation.CTE,
+                identifier=add_ephemeral_model_prefix(
+                    target_model_name)).quote(identifier=False)
         else:
-            adapter = get_adapter(profile)
             return adapter.Relation.create_from_node(profile, target_model)
 
     return do_ref

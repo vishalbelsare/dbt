@@ -3,5 +3,7 @@
     from the db (relation type, when we asked the db about it, columns, ??)
 - [ ] add get_relation, list_relations
 - fns / macros
-  - query_for_existing
-  - macro: get_existing_relation_type
+  - [ ] query_for_existing
+  - [ ] get_columns_in_table
+  - [ ] macro: get_existing_relation_type
+  - [ ] macro: create_table_as

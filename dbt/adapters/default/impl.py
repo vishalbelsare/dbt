@@ -149,9 +149,10 @@ class DefaultAdapter(object):
     def drop(cls, profile, schema, relation, relation_type, model_name=None):
         # add deprecation warning
         identifier = relation
-        relation = cls.Relation(schema=schema,
-                                identifier=identifier,
-                                type=relation_type)
+        relation = cls.Relation.create(
+            schema=schema,
+            identifier=identifier,
+            type=relation_type)
 
         return cls.drop_relation(profile, relation, model_name)
 

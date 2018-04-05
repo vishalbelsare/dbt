@@ -26,10 +26,12 @@ class DefaultRelation(APIObject):
 
     Table = "table"
     View = "view"
+    CTE = "cte"
 
     RelationTypes = [
         Table,
-        View
+        View,
+        CTE
     ]
 
     DEFAULTS = {
@@ -59,7 +61,7 @@ class DefaultRelation(APIObject):
                 },
             },
             'type': {
-                'enum': RelationTypes
+                'enum': RelationTypes + [None],
             },
             'path': PATH_SCHEMA,
             'include_policy': POLICY_SCHEMA,
@@ -151,27 +153,27 @@ class DefaultRelation(APIObject):
 
     @classmethod
     def create_from_node(cls, profile, node, **kwargs):
-        return cls.create_from_parts(
+        return cls.create(
             database=profile['dbname'],
             schema=node['schema'],
             identifier=node['name'],
             **kwargs)
 
     @classmethod
-    def create_from_parts(cls, database=None, schema=None,
-                          identifier=None, table_name=None,
-                          type=None):
+    def create(cls, database=None, schema=None,
+               identifier=None, table_name=None,
+               type=None, **kwargs):
         if table_name is None:
             table_name = identifier
 
-        return cls(
-            type=type,
-            path={
-                'database': database,
-                'schema': schema,
-                'identifier': identifier
-            },
-            table_name=table_name)
+        return cls(type=type,
+                   path={
+                       'database': database,
+                       'schema': schema,
+                       'identifier': identifier
+                   },
+                   table_name=table_name,
+                   **kwargs)
 
     def __repr__(self):
         return "<{} {}>".format(self.__class__.__name__, self.render())
@@ -208,6 +210,10 @@ class DefaultRelation(APIObject):
     @property
     def is_table(self):
         return self.type == self.Table
+
+    @property
+    def is_cte(self):
+        return self.type == self.CTE
 
     @property
     def is_view(self):

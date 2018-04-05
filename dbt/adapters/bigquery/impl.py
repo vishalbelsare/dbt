@@ -177,7 +177,7 @@ class BigQueryAdapter(PostgresAdapter):
             'EXTERNAL': 'external'
         }
 
-        return [cls.Relation(
+        return [cls.Relation.create(
             project=credentials.get('project'),
             dataset=dataset,
             identifier=table.table_id,

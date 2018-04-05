@@ -1,5 +1,5 @@
-from dbt.adapters.bigquery.impl import BigqueryAdapter
+from dbt.adapters.bigquery.impl import BigQueryAdapter
 
 __all__ = [
-    BigqueryAdapter,
+    BigQueryAdapter,
 ]

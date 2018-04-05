@@ -82,7 +82,7 @@
 
   -- build model
   {% if partitions %}
-      {% set result = make_date_partitioned_table(model, partitions, (!old_relation.is_table), verbose) %}
+      {% set result = make_date_partitioned_table(model, partitions, (not old_relation.is_table), verbose) %}
   {% else %}
       {% set result = adapter.execute_model(model, 'table') %}
   {% endif %}
