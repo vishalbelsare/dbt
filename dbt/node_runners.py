@@ -90,7 +90,7 @@ class BaseRunner(object):
     def is_ephemeral_model(cls, node):
         return cls.is_refable(node) and cls.is_ephemeral(node)
 
-    def safe_run(self, flat_graph, existing):
+    def safe_run(self, flat_graph):
         catchable_errors = (dbt.exceptions.CompilationException,
                             dbt.exceptions.RuntimeException)
 
@@ -105,7 +105,7 @@ class BaseRunner(object):
 
             # for ephemeral nodes, we only want to compile, not run
             if not self.is_ephemeral_model(self.node):
-                result = self.run(compiled_node, existing, flat_graph)
+                result = self.run(compiled_node, flat_graph)
 
         except catchable_errors as e:
             if e.node is None:
@@ -148,11 +148,11 @@ class BaseRunner(object):
     def before_execute(self):
         raise NotImplementedException()
 
-    def execute(self, compiled_node, existing, flat_graph):
+    def execute(self, compiled_node, flat_graph):
         raise NotImplementedException()
 
-    def run(self, compiled_node, existing, flat_graph):
-        return self.execute(compiled_node, existing, flat_graph)
+    def run(self, compiled_node, flat_graph):
+        return self.execute(compiled_node, flat_graph)
 
     def after_execute(self, result):
         raise NotImplementedException()
@@ -209,7 +209,7 @@ class CompileRunner(BaseRunner):
     def after_execute(self, result):
         pass
 
-    def execute(self, compiled_node, existing, flat_graph):
+    def execute(self, compiled_node, flat_graph):
         return RunModelResult(compiled_node)
 
     def compile(self, flat_graph):
@@ -401,7 +401,7 @@ class ModelRunner(CompileRunner):
         track_model_run(self.node_index, self.num_nodes, result)
         self.print_result_line(result)
 
-    def execute(self, model, existing, flat_graph):
+    def execute(self, model, flat_graph):
         context = dbt.context.runtime.generate(model, self.project, flat_graph)
 
         materialization_macro = dbt.utils.get_materialization_macro(
@@ -461,7 +461,7 @@ class TestRunner(CompileRunner):
     def before_execute(self):
         self.print_start_line()
 
-    def execute(self, test, existing, flat_graph):
+    def execute(self, test, flat_graph):
         status = self.execute_test(test)
         return RunModelResult(test, status=status)
 
@@ -499,7 +499,7 @@ class SeedRunner(ModelRunner):
         dbt.ui.printer.print_start_line(description, self.node_index,
                                         self.num_nodes)
 
-    def execute(self, compiled_node, existing_, flat_graph):
+    def execute(self, compiled_node, flat_graph):
         schema = compiled_node["schema"]
         table_name = compiled_node["name"]
         table = compiled_node["agate_table"]

@@ -272,12 +272,14 @@ class DefaultAdapter(object):
             '`list_relations` is not implemented for this adapter!')
 
     @classmethod
-    def get_relation(cls, profile, **kwargs):
-        relations = cls.list_relations()
+    def get_relation(cls, profile, relations_list=None,
+                     model_name=None, **kwargs):
+        if relations_list is None:
+            relations_list = cls.list_relations(profile, model_name)
 
         matches = []
 
-        for relation in relations:
+        for relation in relations_list:
             if relation.matches(**kwargs):
                 matches.append(relation)
 

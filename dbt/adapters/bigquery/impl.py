@@ -239,8 +239,8 @@ class BigQueryAdapter(PostgresAdapter):
             raise job.exception()
 
     @classmethod
-    def make_date_partitioned_table(cls, profile, dataset_name, identifier,
-                                    model_name=None):
+    def make_date_partitioned_table(cls, profile, dataset_name,
+                                    identifier, model_name=None):
         conn = cls.get_connection(profile, model_name)
         client = conn.get('handle')
 
