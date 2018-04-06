@@ -5,7 +5,12 @@
 - fns / macros
   - [x] query_for_existing
   - [ ] get_columns_in_table
-  - [ ] rename
+  - [x] rename
+  - [x] truncate
+  - [ ] drop
+  - [ ] reset_csv_table
+  - [ ] load_csv_rows
   - [ ] macro: get_existing_relation_type
   - [ ] macro: create_table_as
   - (go back through these after BQ pr is merged)
+- [ ] deprecation warnings

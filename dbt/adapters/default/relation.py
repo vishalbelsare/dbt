@@ -1,26 +1,6 @@
 from dbt.api import APIObject
 from dbt.utils import filter_null_values
 
-PATH_SCHEMA = {
-    'type': 'object',
-    'properties': {
-        'database': {'type': ['string', 'null']},
-        'schema': {'type': ['string', 'null']},
-        'identifier': {'type': 'string'},
-    },
-    'required': ['database', 'schema', 'identifier'],
-}
-
-POLICY_SCHEMA = {
-    'type': 'object',
-    'properties': {
-        'database': {'type': 'boolean'},
-        'schema': {'type': 'boolean'},
-        'identifier': {'type': 'boolean'},
-    },
-    'required': ['database', 'schema', 'identifier'],
-}
-
 
 class DefaultRelation(APIObject):
 
@@ -51,6 +31,26 @@ class DefaultRelation(APIObject):
         }
     }
 
+    PATH_SCHEMA = {
+        'type': 'object',
+        'properties': {
+            'database': {'type': ['string', 'null']},
+            'schema': {'type': ['string', 'null']},
+            'identifier': {'type': 'string'},
+        },
+        'required': ['database', 'schema', 'identifier'],
+    }
+
+    POLICY_SCHEMA = {
+        'type': 'object',
+        'properties': {
+            'database': {'type': 'boolean'},
+            'schema': {'type': 'boolean'},
+            'identifier': {'type': 'boolean'},
+        },
+        'required': ['database', 'schema', 'identifier'],
+    }
+
     SCHEMA = {
         'type': 'object',
         'properties': {
@@ -71,8 +71,6 @@ class DefaultRelation(APIObject):
         'required': ['metadata', 'type', 'path', 'include_policy',
                      'quote_policy', 'quote_character']
     }
-
-    PATH_ELEMENTS = ['database', 'schema', 'identifier']
 
     def matches(self, database=None, schema=None, identifier=None):
         search = filter_null_values({

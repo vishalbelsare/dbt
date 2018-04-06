@@ -165,7 +165,16 @@ class DefaultAdapter(object):
 
     @classmethod
     def truncate(cls, profile, schema, table, model_name=None):
-        relation = cls.render_relation(profile, schema, table)
+        # add deprecation warning
+        relation = cls.Relation.create(
+            schema=schema,
+            identifier=table,
+            type='table')
+
+        return cls.truncate_relation(profile, relation, model_name)
+
+    @classmethod
+    def truncate_relation(cls, profile, relation, model_name=None):
         sql = 'truncate table {}'.format(relation)
 
         connection, cursor = cls.add_query(profile, sql, model_name)
@@ -175,8 +184,10 @@ class DefaultAdapter(object):
         # add deprecation warning
         return cls.rename_relation(
             profile,
-            from_relation=cls.Relation(schema=schema, identifier=from_name),
-            to_relation=cls.Relation(identifier=to_name),
+            from_relation=cls.Relation.create(
+                schema=schema, identifier=from_name),
+            to_relation=cls.Relation.create(
+                identifier=to_name),
             model_name=model_name)
 
     @classmethod

@@ -9,6 +9,7 @@ import dbt.clients.gcloud
 import dbt.clients.agate_helper
 
 from dbt.adapters.postgres import PostgresAdapter
+from dbt.adapters.bigquery.relation import BigQueryRelation
 from dbt.contracts.connection import validate_connection
 from dbt.logger import GLOBAL_LOGGER as logger
 
@@ -32,6 +33,8 @@ class BigQueryAdapter(PostgresAdapter):
         "quote_schema_and_table",
         "make_date_partitioned_table"
     ]
+
+    Relation = BigQueryRelation
 
     SCOPE = ('https://www.googleapis.com/auth/bigquery',
              'https://www.googleapis.com/auth/cloud-platform',
@@ -482,8 +485,10 @@ class BigQueryAdapter(PostgresAdapter):
 
     @classmethod
     def reset_csv_table(cls, profile, schema, table_name, agate_table,
-                        full_refresh=False):
-        cls.drop(profile, schema, table_name, "table")
+                        full_refresh=False, model_name=None):
+        relation = cls.Relation(dataset=schema, identifier=table_name)
+
+        cls.drop_relation(profile, relation, model_name)
 
     @classmethod
     def _agate_to_schema(cls, agate_table):

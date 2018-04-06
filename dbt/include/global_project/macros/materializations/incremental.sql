@@ -40,7 +40,7 @@
   {% if old_relation is none -%}
     -- noop
   {%- elif should_truncate -%}
-    {{ adapter.truncate(schema, identifier) }}
+    {{ adapter.truncate_relation(old_relation) }}
   {%- elif should_drop -%}
     {{ adapter.drop_relation(old_relation) }}
     {%- set old_relation = none -%}

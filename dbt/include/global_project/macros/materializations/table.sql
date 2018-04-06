@@ -20,7 +20,7 @@
   -- setup: if the target relation already exists, truncate or drop it
   {% if non_destructive_mode -%}
     {% if exists_as_table -%}
-      {{ adapter.truncate(schema, identifier) }}
+      {{ adapter.truncate_relation(old_relation) }}
     {% elif exists_as_view -%}
       {{ adapter.drop_relation(old_relation) }}
       {%- set old_relation = none -%}

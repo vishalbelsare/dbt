@@ -201,12 +201,15 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
 
     @classmethod
     def reset_csv_table(cls, profile, schema, table_name, agate_table,
-                        full_refresh=False):
+                        full_refresh=False, model_name=None):
+        relation = cls.Relation.create(
+            schema=schema, identifier=table_name, type='table')
+
         if full_refresh:
-            cls.drop(profile, schema, table_name, 'table', None)
+            cls.drop_relation(profile, relation, model_name)
             cls.create_csv_table(profile, schema, table_name, agate_table)
         else:
-            cls.truncate(profile, schema, table_name)
+            cls.truncate_relation(profile, relation, model_name)
 
     @classmethod
     def load_csv_rows(cls, profile, schema, table_name, agate_table):
