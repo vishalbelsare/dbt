@@ -5,8 +5,12 @@
   {%- set non_destructive_mode = (flags.NON_DESTRUCTIVE == True) -%}
 
   {%- set existing_relations = adapter.list_relations() -%}
-  {%- set old_relation = adapter.get_relation(relations_list=existing_relations, identifier=identifier) -%}
-  {%- set tmp_relation = adapter.Relation.create(identifier=tmp_identifier, type='table') -%}
+  {%- set old_relation = adapter.get_relation(relations_list=existing_relations,
+                                              schema=schema, identifier=identifier) -%}
+  {%- set target_relation = adapter.Relation.create(identifier=identifier, schema=schema,
+                                                    type='view') -%}
+  {%- set intermediate_relation = adapter.Relation.create(identifier=tmp_identifier,
+                                                          schema=schema, type='view') -%}
 
   {%- set exists_as_view = (old_relation is not none and old_relation.is_view) -%}
 
@@ -14,7 +18,7 @@
   {%- set should_ignore = non_destructive_mode and exists_as_view %}
 
   {{ run_hooks(pre_hooks, inside_transaction=False) }}
-  {{ adapter.drop_relation(tmp_relation) }}
+  {{ adapter.drop_relation(intermediate_relation) }}
 
   -- `BEGIN` happens here:
   {{ run_hooks(pre_hooks, inside_transaction=True) }}
@@ -42,7 +46,7 @@
   -- cleanup
   {% if not should_ignore -%}
     {{ drop_relation_if_exists(old_relation) }}
-    {{ adapter.rename(schema, tmp_identifier, identifier) }}
+    {{ adapter.rename_relation(intermediate_relation, target_relation) }}
   {%- endif %}
 
   {#

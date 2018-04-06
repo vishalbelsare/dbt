@@ -137,12 +137,10 @@ class SnowflakeAdapter(PostgresAdapter):
         return dict(existing)
 
     @classmethod
-    def rename(cls, profile, schema, from_name, to_name, model_name=None):
-        sql = (('alter table {schema}.{from_name} '
-                'rename to {schema}.{to_name}')
-               .format(schema=schema,
-                       from_name=from_name,
-                       to_name=to_name))
+    def rename_relation(cls, profile, from_relation,
+                        to_relation, model_name=None):
+        sql = 'alter table {} rename to {}'.format(
+            from_relation, to_relation)
 
         connection, cursor = cls.add_query(profile, sql, model_name)
 

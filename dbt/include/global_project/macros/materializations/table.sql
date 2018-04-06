@@ -5,19 +5,23 @@
 
   {%- set existing_relations = adapter.list_relations() -%}
   {%- set old_relation = adapter.get_relation(relations_list=existing_relations,
-                                                 schema=schema, identifier=identifier) -%}
+                                              schema=schema, identifier=identifier) -%}
   {%- set target_relation = adapter.Relation.create(identifier=identifier, schema=schema, type='table') -%}
-  {%- set tmp_relation = adapter.Relation.create(identifier=tmp_identifier,
-                                                 schema=schema, type='table') -%}
+  {%- set intermediate_relation = adapter.Relation.create(identifier=tmp_identifier,
+                                                          schema=schema, type='table') -%}
+  {%- set exists_as_table = (old_relation is not none and old_relation.is_table) -%}
+  {%- set exists_as_view = (old_relation is not none and old_relation.is_view) -%}
+  {%- set create_as_temporary = (exists_as_table and non_destructive_mode) -%}
+
 
   -- drop the temp relation if it exists for some reason
-  {{ adapter.drop_relation(tmp_relation) }}
+  {{ adapter.drop_relation(intermediate_relation) }}
 
   -- setup: if the target relation already exists, truncate or drop it
   {% if non_destructive_mode -%}
-    {% if old_relation.is_table -%}
+    {% if exists_as_table -%}
       {{ adapter.truncate(schema, identifier) }}
-    {% elif old_relation.is_view -%}
+    {% elif exists_as_view -%}
       {{ adapter.drop_relation(old_relation) }}
       {%- set old_relation = none -%}
     {%- endif %}
@@ -32,20 +36,20 @@
   {% call statement('main') -%}
     {%- if non_destructive_mode -%}
       {%- if old_relation is not none -%}
-        {{ create_table_as(True, tmp_relation, sql) }}
+        {{ create_table_as(create_as_temporary, intermediate_relation, sql) }}
 
         {% set dest_columns = adapter.get_columns_in_table(schema, identifier) %}
         {% set dest_cols_csv = dest_columns | map(attribute='quoted') | join(', ') %}
 
         insert into {{ target_relation }} ({{ dest_cols_csv }}) (
           select {{ dest_cols_csv }}
-          from {{ tmp_relation }}
+          from {{ intermediate_relation }}
         );
       {%- else -%}
-        {{ create_table_as(False, target_relation, sql) }}
+        {{ create_table_as(create_as_temporary, target_relation, sql) }}
       {%- endif -%}
     {%- else -%}
-      {{ create_table_as(False, tmp_relation, sql) }}
+      {{ create_table_as(create_as_temporary, intermediate_relation, sql) }}
     {%- endif -%}
   {%- endcall %}
 
@@ -56,7 +60,7 @@
     -- noop
   {%- else -%}
     {{ drop_relation_if_exists(target_relation) }}
-    {{ adapter.rename(schema, tmp_relation.identifier, target_relation.identifier) }}
+    {{ adapter.rename_relation(intermediate_relation, target_relation) }}
   {%- endif %}
 
   -- `COMMIT` happens here

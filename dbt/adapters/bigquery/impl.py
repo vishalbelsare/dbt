@@ -199,6 +199,12 @@ class BigQueryAdapter(PostgresAdapter):
             '`rename` is not implemented for this adapter!')
 
     @classmethod
+    def rename_relation(cls, profile, from_relation, to_relation,
+                        model_name=None):
+        raise dbt.exceptions.NotImplementedException(
+            '`rename_relation` is not implemented for this adapter!')
+
+    @classmethod
     def get_timeout(cls, conn):
         credentials = conn['credentials']
         return credentials.get('timeout_seconds', cls.QUERY_TIMEOUT)

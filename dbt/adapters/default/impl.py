@@ -43,7 +43,7 @@ class DefaultAdapter(object):
         "list_relations",
         "get_relation",
         "drop_relation",
-
+        "rename_relation",
 
         "execute",
         "add_query",
@@ -172,8 +172,18 @@ class DefaultAdapter(object):
 
     @classmethod
     def rename(cls, profile, schema, from_name, to_name, model_name=None):
-        from_relation = cls.render_relation(profile, schema, from_name)
-        sql = 'alter table {} rename to {}'.format(from_relation, to_name)
+        # add deprecation warning
+        return cls.rename_relation(
+            profile,
+            from_relation=cls.Relation(schema=schema, identifier=from_name),
+            to_relation=cls.Relation(identifier=to_name),
+            model_name=model_name)
+
+    @classmethod
+    def rename_relation(cls, profile, from_relation,
+                        to_relation, model_name=None):
+        sql = 'alter table {} rename to {}'.format(
+            from_relation, to_relation.include(schema=False))
 
         connection, cursor = cls.add_query(profile, sql, model_name)
 
