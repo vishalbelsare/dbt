@@ -1,6 +1,11 @@
-{% macro postgres__create_table_as(temporary, identifier, sql) -%}
+{% macro postgres__create_table_as(temporary, relation, sql) -%}
+  {%- if temporary -%}
+    {%- set relation = relation.include(schema=False) -%}
+  {%- endif -%}
+
   create {% if temporary: -%}temporary{%- endif %} table
-    {% if not temporary: -%}{{ schema }}.{%- endif %}{{ identifier }} as (
+    {{ relation }}
+  as (
     {{ sql }}
   );
 {% endmacro %}

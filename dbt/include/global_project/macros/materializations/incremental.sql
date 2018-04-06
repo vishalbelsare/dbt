@@ -20,8 +20,11 @@
   {%- set tmp_identifier = model['name'] + '__dbt_incremental_tmp' -%}
 
   {%- set existing_relations = adapter.list_relations() -%}
-  {%- set old_relation = adapter.get_relation(relations_list=existing_relations, identifier=identifier) -%}
-  {%- set tmp_relation = adapter.Relation.create(identifier=tmp_identifier) -%}
+  {%- set old_relation = adapter.get_relation(relations_list=existing_relations,
+                                              schema=schema, identifier=identifier) -%}
+  {%- set target_relation = adapter.Relation.create(identifier=identifier, schema=schema, type='table') -%}
+  {%- set tmp_relation = adapter.Relation.create(identifier=tmp_identifier,
+                                                 schema=schema, type='table') -%}
 
   {%- set non_destructive_mode = (flags.NON_DESTRUCTIVE == True) -%}
   {%- set full_refresh_mode = (flags.FULL_REFRESH == True) -%}
@@ -30,7 +33,7 @@
   {%- set exists_not_as_table = (old_relation is not none and not old_relation.is_table) -%}
 
   {%- set should_truncate = (non_destructive_mode and full_refresh_mode and exists_as_table) -%}
-  {%- set should_drop = (not should_truncate and full_refresh_mode or exists_not_as_table) -%}
+  {%- set should_drop = (not should_truncate and (full_refresh_mode or exists_not_as_table)) -%}
   {%- set force_create = (flags.FULL_REFRESH and not flags.NON_DESTRUCTIVE) -%}
 
   -- setup
@@ -40,6 +43,7 @@
     {{ adapter.truncate(schema, identifier) }}
   {%- elif should_drop -%}
     {{ adapter.drop_relation(old_relation) }}
+    {%- set old_relation = none -%}
   {%- endif %}
 
   {{ run_hooks(pre_hooks, inside_transaction=False) }}
@@ -48,9 +52,9 @@
   {{ run_hooks(pre_hooks, inside_transaction=True) }}
 
   -- build model
-  {% if force_create or old_relation is none or exists_not_as_table -%}
+  {% if force_create or old_relation is none -%}
     {%- call statement('main') -%}
-      {{ create_table_as(False, identifier, sql) }}
+      {{ create_table_as(False, target_relation, sql) }}
     {%- endcall -%}
   {%- else -%}
      {%- call statement() -%}
@@ -64,7 +68,7 @@
            or ({{ sql_where }}) is null
        {%- endset %}
 
-       {{ dbt.create_table_as(temporary=True, identifier=tmp_identifier, sql=tmp_table_sql) }}
+       {{ dbt.create_table_as(True, tmp_relation, tmp_table_sql) }}
 
      {%- endcall -%}
 
@@ -82,10 +86,10 @@
 
        {%- endif %}
 
-       insert into {{ schema }}.{{ identifier }} ({{ dest_cols_csv }})
+       insert into {{ target_relation }} ({{ dest_cols_csv }})
        (
          select {{ dest_cols_csv }}
-         from {{ identifier }}__dbt_incremental_tmp
+         from {{ tmp_relation.include(schema=False) }}
        );
      {% endcall %}
   {%- endif %}

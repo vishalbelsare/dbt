@@ -110,6 +110,7 @@
 
   {%- set identifier = model['name'] -%}
   {%- set tmp_identifier = model['name'] + '__dbt_archival_tmp' -%}
+  {%- set tmp_relation = adapter.Relation.create(identifier=tmp_identifier, type='table') -%}
 
   {% call statement() %}
     {% set tmp_table_sql -%}
@@ -121,7 +122,7 @@
 
     {%- endset %}
 
-    {{ dbt.create_table_as(temporary=True, identifier=tmp_identifier, sql=tmp_table_sql) }}
+    {{ dbt.create_table_as(True, tmp_relation, tmp_table_sql) }}
 
   {% endcall %}
 

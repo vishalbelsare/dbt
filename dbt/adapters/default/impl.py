@@ -12,6 +12,7 @@ import dbt.clients.agate_helper
 from dbt.contracts.connection import validate_connection
 from dbt.logger import GLOBAL_LOGGER as logger
 from dbt.schema import Column
+from dbt.utils import filter_null_values
 
 from dbt.adapters.default.relation import DefaultRelation
 
@@ -293,6 +294,10 @@ class DefaultAdapter(object):
 
         return None
 
+    @classmethod
+    def reload_relation(cls, profile, relation, model_name=None):
+        return cls.get_relation(profile, model_name=model_name,
+                                **filter_null_values(relation.path))
 
     ###
     # SANE ANSI SQL DEFAULTS

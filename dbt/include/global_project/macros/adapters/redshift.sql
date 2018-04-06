@@ -37,11 +37,9 @@
           'sort',
           validator=validation.any[list, basestring]) -%}
 
-  {% if temporary %}
-    {% set relation = identifier %}
-  {% else %}
-    {% set relation = schema ~ '.' ~ identifier %}
-  {% endif %}
+  {%- if temporary -%}
+    {%- set relation = relation.include(schema=False) -%}
+  {%- endif -%}
 
   create {% if temporary -%}temporary{%- endif %} table {{ relation }}
   {{ dist(_dist) }}
