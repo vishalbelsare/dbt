@@ -8,9 +8,9 @@
   {%- set old_relation = adapter.get_relation(relations_list=existing_relations,
                                               schema=schema, identifier=identifier) -%}
   {%- set target_relation = api.Relation.create(identifier=identifier, schema=schema,
-                                                    type='view') -%}
+                                                type='view') -%}
   {%- set intermediate_relation = api.Relation.create(identifier=tmp_identifier,
-                                                          schema=schema, type='view') -%}
+                                                      schema=schema, type='view') -%}
 
   {%- set exists_as_view = (old_relation is not none and old_relation.is_view) -%}
 
@@ -37,7 +37,7 @@
     {%- endcall %}
   {%- else -%}
     {% call statement('main') -%}
-      {{ create_view_as(tmp_identifier, sql) }}
+      {{ create_view_as(intermediate_relation, sql) }}
     {%- endcall %}
   {%- endif %}
 

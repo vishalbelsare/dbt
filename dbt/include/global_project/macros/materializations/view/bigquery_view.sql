@@ -10,6 +10,8 @@
       relations_list=existing_relations,
       schema=schema, identifier=identifier) -%}
 
+  {%- set exists_as_view = (old_relation is not none and old_relation.is_view) -%}
+
   {%- set target_relation = api.Relation.create(
       identifier=identifier, schema=schema,
       type='view') -%}
@@ -29,14 +31,14 @@
   {%- endif -%}
 
   -- build model
-  {% if old_relation is not none and old_relation.is_view and non_destructive_mode -%}
+  {% if exists_as_view and non_destructive_mode -%}
     {% call noop_statement('main', status="PASS", res=None) -%}
       -- Not running : non-destructive mode
       {{ sql }}
     {%- endcall %}
   {%- else -%}
     {% call statement('main') -%}
-      {{ create_view_as(identifier, sql) }}
+      {{ create_view_as(target_relation, sql) }}
     {%- endcall %}
   {%- endif %}
 

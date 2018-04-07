@@ -7,11 +7,14 @@
   - [ ] get_columns_in_table
   - [x] rename
   - [x] truncate
-  - [ ] drop
+  - [x] drop
   - [ ] reset_csv_table
   - [ ] load_csv_rows
   - [ ] handle_csv_table
-  - [ ] macro: get_existing_relation_type
+  - [ ] make_date_partitioned_table
+  - [x] macro: get_existing_relation_type
   - [ ] macro: create_table_as
+  - [ ] macro: create_view_as
+  - [ ] macro: create_archive_table
   - (go back through these after BQ pr is merged)
 - [ ] deprecation warnings

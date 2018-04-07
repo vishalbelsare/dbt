@@ -1,7 +1,7 @@
-{% macro make_date_partitioned_table(model, dates, should_create, verbose=False) %}
+{% macro make_date_partitioned_table(model, relation, dates, should_create, verbose=False) %}
 
   {% if should_create %}
-      {{ adapter.make_date_partitioned_table(model.schema, model.name) }}
+      {{ adapter.make_date_partitioned_table(relation.dataset, relation.identifier) }}
   {% endif %}
 
   {% for date in dates %}
@@ -32,6 +32,8 @@
   {%- set non_destructive_mode = (flags.NON_DESTRUCTIVE == True) -%}
   {%- set existing_relations = adapter.list_relations(dataset=schema) -%}
   {%- set old_relation = adapter.get_relation(relations_list=existing_relations, identifier=identifier) -%}
+  {%- set exists_not_as_table = (old_relation is not none and not old_relation.is_table) -%}
+  {%- set target_relation = api.Relation(dataset=schema, identifier=identifier, type='table') -%}
   {%- set verbose = config.get('verbose', False) -%}
 
   {# partitions: iterate over each partition, running a separate query in a for-loop #}
@@ -54,16 +56,16 @@
       Since dbt uses WRITE_TRUNCATE mode for tables, we only need to drop this thing
       if it is not a table. If it _is_ already a table, then we can overwrite it without downtime
   #}
-  {%- if old_relation is not none and not old_relation.is_table -%}
+  {%- if exists_not_as_table -%}
       {{ adapter.drop_relation(old_relation) }}
   {%- endif -%}
 
   -- build model
   {% if partitions %}
-    {{ make_date_partitioned_table(model, partitions, (not old_relation.is_table), verbose) }}
+    {{ make_date_partitioned_table(model, target_relation, partitions, exists_not_as_table, verbose) }}
   {% else %}
     {% call statement('main') -%}
-      {{ create_table_as(False, identifier, sql) }}
+      {{ create_table_as(False, target_relation, sql) }}
     {% endcall -%}
   {% endif %}
 

@@ -27,7 +27,7 @@
 {%- endmacro -%}
 
 
-{% macro redshift__create_table_as(temporary, identifier, sql) -%}
+{% macro redshift__create_table_as(temporary, relation, sql) -%}
 
   {%- set _dist = config.get('dist') -%}
   {%- set _sort_type = config.get(
@@ -37,31 +37,28 @@
           'sort',
           validator=validation.any[list, basestring]) -%}
 
-  {%- if temporary -%}
-    {%- set relation = relation.include(schema=False) -%}
-  {%- endif -%}
-
-  create {% if temporary -%}temporary{%- endif %} table {{ relation }}
-  {{ dist(_dist) }}
-  {{ sort(_sort_type, _sort) }}
+  create {% if temporary -%}temporary{%- endif %} table
+    {{ relation.include(schema=(not temporary)) }}
+    {{ dist(_dist) }}
+    {{ sort(_sort_type, _sort) }}
   as (
     {{ sql }}
   );
 {%- endmacro %}
 
 
-{% macro redshift__create_view_as(identifier, sql) -%}
+{% macro redshift__create_view_as(relation, sql) -%}
 
   {% set bind_qualifier = '' if config.get('bind', default=True) else 'with no schema binding' %}
 
-  create view {{ schema }}.{{ identifier }} as (
+  create view {{ relation }} as (
     {{ sql }}
   ) {{ bind_qualifier }};
 {% endmacro %}
 
 
-{% macro redshift__create_archive_table(schema, identifier, columns) -%}
-  create table if not exists {{ schema }}.{{ identifier }} (
+{% macro redshift__create_archive_table(relation, columns) -%}
+  create table if not exists {{ relation }} (
     {{ column_list_for_create_table(columns) }}
   )
   {{ dist('dbt_updated_at') }}

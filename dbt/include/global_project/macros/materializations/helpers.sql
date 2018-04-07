@@ -45,14 +45,6 @@
     {{ make_hook_config(sql, inside_transaction=False) }}
 {% endmacro %}
 
-
-{% macro drop_if_exists(existing, schema, name) %}
-  {% set existing_type = get_existing_relation_type(existing, name) %}
-  {% if existing_type is not none %}
-    {{ adapter.drop_relation(api.Relation.create(schema=schema, identifier=name, type=existing_type)) }}
-  {% endif %}
-{% endmacro %}
-
 {% macro drop_relation_if_exists(relation) %}
   {% if relation is not none %}
     {{ adapter.drop_relation(relation) }}

@@ -1,13 +1,13 @@
-{% macro dbt__incremental_delete(schema, model) -%}
+{% macro dbt__incremental_delete(target_relation, tmp_relation) -%}
 
   {%- set unique_key = config.require('unique_key') -%}
   {%- set identifier = model['name'] -%}
 
   delete
-  from {{ schema }}.{{ identifier }}
+  from {{ target_relation }}
   where ({{ unique_key }}) in (
     select ({{ unique_key }})
-    from {{ identifier }}__dbt_incremental_tmp
+    from {{ tmp_relation }}
   );
 
 {%- endmacro %}
@@ -82,7 +82,7 @@
 
        {% if unique_key is not none -%}
 
-         {{ dbt__incremental_delete(schema, model) }}
+         {{ dbt__incremental_delete(target_relation, tmp_relation) }}
 
        {%- endif %}
 
