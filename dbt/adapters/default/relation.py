@@ -154,9 +154,9 @@ class DefaultRelation(APIObject):
     @classmethod
     def create_from_node(cls, profile, node, **kwargs):
         return cls.create(
-            database=profile['dbname'],
-            schema=node['schema'],
-            identifier=node['name'],
+            database=profile.get('dbname'),
+            schema=node.get('schema'),
+            identifier=node.get('name'),
             **kwargs)
 
     @classmethod

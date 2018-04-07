@@ -13,8 +13,8 @@
   - [ ] handle_csv_table
   - [ ] make_date_partitioned_table
   - [x] macro: get_existing_relation_type
-  - [ ] macro: create_table_as
-  - [ ] macro: create_view_as
-  - [ ] macro: create_archive_table
+  - [x] macro: create_table_as
+  - [x] macro: create_view_as
+  - [x] macro: create_archive_table
   - (go back through these after BQ pr is merged)
 - [ ] deprecation warnings

@@ -45,6 +45,7 @@ class DefaultAdapter(object):
         "get_relation",
         "drop_relation",
         "rename_relation",
+        "truncate_relation",
 
         "execute",
         "add_query",

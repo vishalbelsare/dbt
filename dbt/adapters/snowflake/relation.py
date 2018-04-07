@@ -20,6 +20,14 @@ class SnowflakeRelation(DefaultRelation):
         }
     }
 
+    @classmethod
+    def create_from_node(cls, profile, node, **kwargs):
+        return cls.create(
+            database=profile.get('database'),
+            schema=node.get('schema'),
+            identifier=node.get('name'),
+            **kwargs)
+
     def matches(self, database=None, schema=None, identifier=None):
         search = filter_null_values({
             'database': database,
