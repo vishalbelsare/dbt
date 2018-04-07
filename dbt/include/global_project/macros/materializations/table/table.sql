@@ -6,8 +6,8 @@
   {%- set existing_relations = adapter.list_relations() -%}
   {%- set old_relation = adapter.get_relation(relations_list=existing_relations,
                                               schema=schema, identifier=identifier) -%}
-  {%- set target_relation = adapter.Relation.create(identifier=identifier, schema=schema, type='table') -%}
-  {%- set intermediate_relation = adapter.Relation.create(identifier=tmp_identifier,
+  {%- set target_relation = api.Relation.create(identifier=identifier, schema=schema, type='table') -%}
+  {%- set intermediate_relation = api.Relation.create(identifier=tmp_identifier,
                                                           schema=schema, type='table') -%}
   {%- set exists_as_table = (old_relation is not none and old_relation.is_table) -%}
   {%- set exists_as_view = (old_relation is not none and old_relation.is_view) -%}

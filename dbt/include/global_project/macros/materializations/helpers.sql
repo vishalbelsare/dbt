@@ -49,7 +49,7 @@
 {% macro drop_if_exists(existing, schema, name) %}
   {% set existing_type = get_existing_relation_type(existing, name) %}
   {% if existing_type is not none %}
-    {{ adapter.drop_relation(Relation.create(schema=schema, identifier=name, type=existing_type)) }}
+    {{ adapter.drop_relation(api.Relation.create(schema=schema, identifier=name, type=existing_type)) }}
   {% endif %}
 {% endmacro %}
 

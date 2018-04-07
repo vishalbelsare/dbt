@@ -21,7 +21,7 @@ class BigQueryRelation(DefaultRelation):
         }
     }
 
-    PATH_DATASET = {
+    PATH_SCHEMA = {
         'type': 'object',
         'properties': {
             'project': {'type': ['string', 'null']},
@@ -31,7 +31,7 @@ class BigQueryRelation(DefaultRelation):
         'required': ['project', 'dataset', 'identifier'],
     }
 
-    POLICY_DATASET = {
+    POLICY_SCHEMA = {
         'type': 'object',
         'properties': {
             'project': {'type': 'boolean'},
@@ -40,6 +40,8 @@ class BigQueryRelation(DefaultRelation):
         },
         'required': ['project', 'dataset', 'identifier'],
     }
+
+    PATH_ELEMENTS = ['project', 'dataset', 'identifier']
 
     def matches(self, project=None, dataset=None, identifier=None):
         search = filter_null_values({

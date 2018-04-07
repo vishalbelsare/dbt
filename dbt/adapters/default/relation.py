@@ -72,6 +72,8 @@ class DefaultRelation(APIObject):
                      'quote_policy', 'quote_character']
     }
 
+    PATH_ELEMENTS = ['database', 'schema', 'identifier']
+
     def matches(self, database=None, schema=None, identifier=None):
         search = filter_null_values({
             'database': database,
@@ -119,7 +121,7 @@ class DefaultRelation(APIObject):
     def render(self):
         parts = []
 
-        for k in ['database', 'schema', 'identifier']:
+        for k in self.PATH_ELEMENTS:
             if self.should_include(k):
                 path_part = self.get_path_part(k)
 

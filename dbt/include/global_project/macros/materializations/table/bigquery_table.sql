@@ -60,7 +60,7 @@
 
   -- build model
   {% if partitions %}
-    {{ set result = make_date_partitioned_table(model, partitions, (not old_relation.is_table), verbose) }}
+    {{ make_date_partitioned_table(model, partitions, (not old_relation.is_table), verbose) }}
   {% else %}
     {% call statement('main') -%}
       {{ create_table_as(False, identifier, sql) }}

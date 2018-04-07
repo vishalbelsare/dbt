@@ -72,16 +72,37 @@
 
 {% materialization archive, default %}
   {%- set config = model['config'] -%}
+  {%- set existing_relations = adapter.list_relations() -%}
+
+  {%- set target_schema = config.get('target_schema') -%}
+  {%- set target_table = config.get('target_table') -%}
+
+  {%- set source_relation = adapter.get_relation(
+      relations_list=existing_relations,
+      schema=config.get('source_schema'),
+      identifier=config.get('source_table')) -%}
+
+  {%- set target_relation = adapter.get_relation(
+      relations_list=existing_relations,
+      schema=target_schema,
+      identifier=target_table) -%}
+
   {%- set source_schema = config.get('source_schema') -%}
   {%- set source_table = config.get('source_table') -%}
 
-  {%- if not adapter.already_exists(source_schema, source_table) -%}
-    {{ exceptions.missing_relation(source_table) }}
+  {%- if source_relation is none -%}
+    {{ exceptions.missing_relation(source_relation) }}
+  {%- endif -%}
+
+  {%- if target_relation is none -%}
+    {%- set target_relation = api.Relation.create(
+        schema=target_schema,
+        identifier=target_table) -%}
+  {%- elif not target_relation.is_table -%}
+    {{ exceptions.relation_wrong_type(target_relation, 'table') }}
   {%- endif -%}
 
   {%- set source_columns = adapter.get_columns_in_table(source_schema, source_table) -%}
-  {%- set target_schema = config.get('target_schema') -%}
-  {%- set target_table = config.get('target_table') -%}
   {%- set unique_key = config.get('unique_key') -%}
   {%- set updated_at = config.get('updated_at') -%}
   {%- set dest_columns = source_columns + [
@@ -104,13 +125,14 @@
 
   {% for col in missing_columns %}
     {% call statement() %}
-      alter table {{ target_schema }}.{{ target_table }} add column "{{ col.name }}" {{ col.data_type }};
+      alter table {{ target_relation }}
+      add column "{{ col.name }}" {{ col.data_type }};
     {% endcall %}
   {% endfor %}
 
   {%- set identifier = model['name'] -%}
   {%- set tmp_identifier = model['name'] + '__dbt_archival_tmp' -%}
-  {%- set tmp_relation = adapter.Relation.create(identifier=tmp_identifier, type='table') -%}
+  {%- set tmp_relation = api.Relation.create(identifier=tmp_identifier, type='table') -%}
 
   {% call statement() %}
     {% set tmp_table_sql -%}

@@ -248,9 +248,18 @@ def missing_config(model, name):
         model)
 
 
-def missing_relation(relation_name, model=None):
+def missing_relation(relation, model=None):
     raise_compiler_error(
-        "Relation {} not found!".format(relation_name),
+        "Relation {} not found!".format(relation),
+        model)
+
+
+def relation_wrong_type(relation, expected_type, model=None):
+    raise_compiler_error(
+        ('Relation {} exists, but it is a {}, not a {}! '
+         'You can resolve this by renaming the relation, or '
+         'dropping the existing relation.')
+        .format(str(relation), relation.type, expected_type),
         model)
 
 

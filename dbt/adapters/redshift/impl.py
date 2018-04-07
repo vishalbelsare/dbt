@@ -93,9 +93,16 @@ class RedshiftAdapter(PostgresAdapter):
     @classmethod
     def drop_relation(cls, profile, relation, model_name=None):
         """
-        In Redshift, DROP TABLE cannot be used inside a transaction.
-        This creates issues with multiple threads, so we need to
-        lock around calls to the underlying drop_relation() function.
+        In Redshift, DROP TABLE ... CASCADE should not be used
+        inside a transaction. Redshift doesn't prevent the CASCADE
+        part from conflicting with concurrent transactions. If we do
+        attempt to drop two tables with CASCADE at once, we'll often
+        get the dreaded:
+
+            table was dropped by a concurrent transaction
+
+        So, we need to lock around calls to the underlying
+        drop_relation() function.
 
         https://docs.aws.amazon.com/redshift/latest/dg/r_DROP_TABLE.html
         """
