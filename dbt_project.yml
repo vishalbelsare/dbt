@@ -1,2 +1,0 @@
-{name: test, profile: test, source-paths: [test/integration/010_permission_tests/models],
-  test-paths: [], version: '1.0'}
