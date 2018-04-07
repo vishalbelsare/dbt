@@ -308,8 +308,11 @@ def generate(model, project, flat_graph, provider=None):
 
     context = dbt.utils.merge(context, {
         "adapter": db_wrapper,
-        "Relation": db_wrapper.adapter.Relation,
-        "column": dbt.schema.Column,
+        "api": {
+            "Relation": adapter.Relation,
+            "Column": adapter.Column,
+        },
+        "column": adapter.Column,
         "config": provider.Config(model),
         "env_var": _env_var,
         "exceptions": dbt.exceptions,

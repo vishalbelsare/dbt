@@ -1,30 +1,3 @@
-{% materialization view, adapter='bigquery' -%}
-
-  {%- set identifier = model['name'] -%}
-  {%- set non_destructive_mode = (flags.NON_DESTRUCTIVE == True) -%}
-  {%- set existing_relations = adapter.list_relations(dataset=schema) -%}
-  {%- set old_relation = adapter.get_relation(relations_list=existing_relations, identifier=identifier) -%}
-
-  {%- if old_relation is not none -%}
-    {%- if old_relation.is_table and not flags.FULL_REFRESH -%}
-      {# this is only intended for date partitioned tables, but we cant see that field in the context #}
-      {% set error_message -%}
-        Trying to create model '{{ identifier }}' as a view, but it already exists as a table.
-        Either drop the {{ old_relation }} table manually, or use --full-refresh
-      {%- endset %}
-      {{ exceptions.raise_compiler_error(error_message) }}
-    {%- endif -%}
-
-    {{ adapter.drop_relation(old_relation) }}
-  {%- endif -%}
-
-  -- build model
-  {% set result = adapter.execute_model(model, 'view') %}
-  {{ store_result('main', status=result) }}
-
-{%- endmaterialization %}
-
-
 {% macro make_date_partitioned_table(model, dates, should_create, verbose=False) %}
 
   {% if should_create %}
@@ -49,7 +22,7 @@
       {% set result_str = 'CREATED ' ~ num_days ~ ' PARTITIONS' %}
   {% endif %}
 
-  {{ return(result_str) }}
+  {{ store_result('main', status=result_str) }}
 
 {% endmacro %}
 
@@ -60,7 +33,12 @@
   {%- set existing_relations = adapter.list_relations(dataset=schema) -%}
   {%- set old_relation = adapter.get_relation(relations_list=existing_relations, identifier=identifier) -%}
   {%- set verbose = config.get('verbose', False) -%}
+
+  {# partitions: iterate over each partition, running a separate query in a for-loop #}
   {%- set partitions = config.get('partitions') -%}
+
+  {# partition_by: run a single query, specifying a date column to partition by #}
+  {%- set partition_by = config.get('partition_by', []) -%}
 
   {% if partitions %}
       {% if partitions is number or partitions is string %}
@@ -82,17 +60,12 @@
 
   -- build model
   {% if partitions %}
-      {% set result = make_date_partitioned_table(model, partitions, (not old_relation.is_table), verbose) %}
+    {{ set result = make_date_partitioned_table(model, partitions, (not old_relation.is_table), verbose) }}
   {% else %}
-      {% set result = adapter.execute_model(model, 'table') %}
+    {% call statement('main') -%}
+      {{ create_table_as(False, identifier, sql) }}
+    {% endcall -%}
   {% endif %}
 
-  {{ store_result('main', status=result) }}
-
-{% endmaterialization %}
-
-{% materialization incremental, adapter='bigquery' -%}
-
-  {{ exceptions.materialization_not_available(model, 'bigquery') }}
 
 {% endmaterialization %}
