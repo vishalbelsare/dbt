@@ -9,14 +9,15 @@ from contextlib import contextmanager
 
 import dbt.compat
 import dbt.exceptions
-import dbt.flags as flags
 
 from dbt.adapters.postgres import PostgresAdapter
-from dbt.contracts.connection import validate_connection
+from dbt.adapters.snowflake.relation import SnowflakeRelation
 from dbt.logger import GLOBAL_LOGGER as logger
 
 
 class SnowflakeAdapter(PostgresAdapter):
+
+    Relation = SnowflakeRelation
 
     @classmethod
     @contextmanager
@@ -101,13 +102,6 @@ class SnowflakeAdapter(PostgresAdapter):
             raise dbt.exceptions.FailedToConnectException(str(e))
 
         return result
-
-    @classmethod
-    def table_existing_type(cls, profile, schema, table, model_name=None):
-        # this is a case-insensitive lookup
-        relations = cls.query_for_existing(profile, schema, model_name)
-        upcased_relations = {k.upper(): v for (k, v) in relations.items()}
-        return upcased_relations.get(table.upper())
 
     @classmethod
     def query_for_existing(cls, profile, schemas, model_name=None):

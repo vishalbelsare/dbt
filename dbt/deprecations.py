@@ -34,8 +34,13 @@ class SeedDropExistingDeprecation(DBTDeprecation):
 
 
 class OldStyleAdapterFunctionsDeprecations(DBTDeprecation):
+    # TODO add link to docs
     name = 'old-style-adapter-functions'
-    description = """Use the new version of this thing?"""
+    description = """
+    This is an old-style adapter function (takes a schema and identifier
+    instead of a Relation object). Please use the new-style functions.
+    You can find more information in the documentation. (ADD LINK)
+    """
 
 
 def warn(name, *args, **kwargs):
@@ -55,7 +60,8 @@ active_deprecations = set()
 
 deprecations_list = [
     DBTRepositoriesDeprecation(),
-    SeedDropExistingDeprecation()
+    SeedDropExistingDeprecation(),
+    OldStyleAdapterFunctionsDeprecations(),
 ]
 
 deprecations = {d.name: d for d in deprecations_list}

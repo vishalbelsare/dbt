@@ -259,8 +259,8 @@ class CompileRunner(BaseRunner):
                 profile, from_schema, from_table,
                 to_schema, to_table, node.get('name'))
 
-        def call_table_exists(schema, table):
-            return adapter.table_exists(
+        def call_already_exists(schema, table):
+            return adapter.already_exists(
                 profile, schema, table, node.get('name'))
 
         return {
@@ -268,7 +268,7 @@ class CompileRunner(BaseRunner):
             "invocation_id": dbt.tracking.active_user.invocation_id,
             "get_columns_in_table": call_get_columns_in_table,
             "get_missing_columns": call_get_missing_columns,
-            "already_exists": call_table_exists,
+            "already_exists": call_already_exists,
         }
 
     @classmethod

@@ -195,12 +195,6 @@ class BigQueryAdapter(PostgresAdapter):
                 for table in all_tables]
 
     @classmethod
-    def table_exists(cls, profile, schema, table, model_name=None):
-        tables = cls.query_for_existing(profile, schema, model_name)
-        exists = tables.get(table) is not None
-        return exists
-
-    @classmethod
     def drop_relation(cls, profile, relation, model_name=None):
         conn = cls.get_connection(profile, model_name)
         client = conn.get('handle')

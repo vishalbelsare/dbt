@@ -692,21 +692,10 @@ class DefaultAdapter(object):
         return cls.add_query(profile, sql, model_name)
 
     @classmethod
-    def table_existing_type(cls, profile, schema, table, model_name=None):
-        tables = cls.query_for_existing(profile, schema, model_name)
-        return tables.get(table)
-
-    @classmethod
-    def table_exists(cls, profile, schema, table, model_name=None):
-        rel_type = cls.table_existing_type(profile, schema, table, model_name)
-        return rel_type is not None
-
-    @classmethod
     def already_exists(cls, profile, schema, table, model_name=None):
-        """
-        Alias for `table_exists`.
-        """
-        return cls.table_exists(profile, schema, table, model_name)
+        # TODO add deprecation warning
+        relation = cls.get_relation(schema=schema, identifier=table)
+        return relation is not None
 
     @classmethod
     def quote(cls, identifier):
@@ -724,17 +713,19 @@ class DefaultAdapter(object):
     @classmethod
     def handle_csv_table(cls, profile, schema, table_name, agate_table,
                          full_refresh=False):
-        existing = cls.query_for_existing(profile, schema)
-        upcased_existing = {k.upper(): v for k, v in existing.items()}
-        existing_type = upcased_existing.get(table_name.upper())
-        if existing_type and existing_type != "table":
-            raise dbt.exceptions.RuntimeException(
-                "Cannot seed to '{}', it is a view".format(table_name))
-        if existing_type:
+        relation = cls.get_relation(
+            profile, schema=schema, identifier=table_name)
+
+        if relation is None:
+            cls.create_csv_table(profile, schema, table_name, agate_table)
+
+        elif relation.is_table or full_refresh:
             cls.reset_csv_table(profile, schema, table_name, agate_table,
                                 full_refresh=full_refresh)
+
         else:
-            cls.create_csv_table(profile, schema, table_name, agate_table)
+            dbt.exceptions.relation_wrong_type(relation, 'table')
+
         cls.load_csv_rows(profile, schema, table_name, agate_table)
         cls.commit_if_has_connection(profile, None)
 

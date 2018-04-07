@@ -256,10 +256,13 @@ def missing_relation(relation, model=None):
 
 def relation_wrong_type(relation, expected_type, model=None):
     raise_compiler_error(
-        ('Relation {} exists, but it is a {}, not a {}! '
-         'You can resolve this by renaming the relation, or '
-         'dropping the existing relation.')
-        .format(str(relation), relation.type, expected_type),
+        ('Trying to create {intended_type} {relation}, '
+         'but it currently exists as a {current_type}. Either '
+         'drop {relation} manually, or run dbt with '
+         '`--full-refresh` and dbt will drop it for you.')
+        .format(relation=relation,
+                current_type=relation.type,
+                expected_type=expected_type),
         model)
 
 

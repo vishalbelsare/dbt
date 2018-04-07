@@ -10,6 +10,7 @@
   - [ ] drop
   - [ ] reset_csv_table
   - [ ] load_csv_rows
+  - [ ] handle_csv_table
   - [ ] macro: get_existing_relation_type
   - [ ] macro: create_table_as
   - (go back through these after BQ pr is merged)
