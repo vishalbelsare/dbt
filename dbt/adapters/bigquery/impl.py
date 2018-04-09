@@ -184,7 +184,7 @@ class BigQueryAdapter(PostgresAdapter):
         credentials = connection.get('credentials', {})
         client = connection.get('handle')
 
-        bigquery_dataset = cls.get_dataset(profile, dataset, model_name)
+        bigquery_dataset = cls.get_dataset(profile, schema, model_name)
         all_tables = client.list_tables(bigquery_dataset)
 
         relation_types = {
@@ -431,10 +431,8 @@ class BigQueryAdapter(PostgresAdapter):
 
         columns = []
         for col in table_schema:
-            name = col.name
-            data_type = col.field_type
-
-            column = cls.Column(col.name, col.field_type, col.fields, col.mode)
+            column = cls.Column(
+                col.name, col.field_type, col.fields, col.mode)
             columns.append(column)
 
         return columns
@@ -516,7 +514,8 @@ class BigQueryAdapter(PostgresAdapter):
     @classmethod
     def reset_csv_table(cls, profile, schema, table_name, agate_table,
                         full_refresh=False, model_name=None):
-        relation = cls.Relation(schema=schema, identifier=table_name)
+        relation = cls.Relation.create(schema=schema,
+                                       identifier=table_name)
 
         cls.drop_relation(profile, relation, model_name)
 

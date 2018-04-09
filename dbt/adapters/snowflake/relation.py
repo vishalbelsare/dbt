@@ -5,7 +5,7 @@ from dbt.utils import filter_null_values
 class SnowflakeRelation(DefaultRelation):
     DEFAULTS = {
         'metadata': {
-            '_type': 'DefaultRelation'
+            '_type': 'SnowflakeRelation'
         },
         'quote_character': '"',
         'quote_policy': {
@@ -18,6 +18,27 @@ class SnowflakeRelation(DefaultRelation):
             'schema': True,
             'identifier': True,
         }
+    }
+
+    SCHEMA = {
+        'type': 'object',
+        'properties': {
+            'metadata': {
+                '_type': {
+                    'type': 'string',
+                    'const': 'SnowflakeRelation',
+                },
+            },
+            'type': {
+                'enum': DefaultRelation.RelationTypes + [None],
+            },
+            'path': DefaultRelation.PATH_SCHEMA,
+            'include_policy': DefaultRelation.POLICY_SCHEMA,
+            'quote_policy': DefaultRelation.POLICY_SCHEMA,
+            'quote_character': {'type': 'string'},
+        },
+        'required': ['metadata', 'type', 'path', 'include_policy',
+                     'quote_policy', 'quote_character']
     }
 
     @classmethod

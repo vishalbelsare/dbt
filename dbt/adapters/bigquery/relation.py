@@ -6,7 +6,7 @@ class BigQueryRelation(DefaultRelation):
 
     DEFAULTS = {
         'metadata': {
-            '_type': 'DefaultRelation'
+            '_type': 'BigQueryRelation'
         },
         'quote_character': '`',
         'quote_policy': {
@@ -47,7 +47,7 @@ class BigQueryRelation(DefaultRelation):
             'metadata': {
                 '_type': {
                     'type': 'string',
-                    'const': 'DefaultRelation',
+                    'const': 'BigQueryRelation',
                 },
             },
             'type': {
@@ -63,6 +63,23 @@ class BigQueryRelation(DefaultRelation):
     }
 
     PATH_ELEMENTS = ['project', 'schema', 'identifier']
+
+    def matches(self, project=None, schema=None, identifier=None):
+        search = filter_null_values({
+            'project': project,
+            'schema': schema,
+            'identifier': identifier
+        })
+
+        if not search:
+            # nothing was passed in
+            pass
+
+        for k, v in search.items():
+            if self.get_path_part(k) != v:
+                return False
+
+        return True
 
     @classmethod
     def create_from_node(cls, profile, node, **kwargs):
@@ -87,23 +104,6 @@ class BigQueryRelation(DefaultRelation):
                    },
                    table_name=table_name,
                    **kwargs)
-
-    def matches(self, project=None, schema=None, identifier=None):
-        search = filter_null_values({
-            'project': project,
-            'schema': schema,
-            'identifier': identifier
-        })
-
-        if not search:
-            # nothing was passed in
-            pass
-
-        for k, v in search.items():
-            if self.get_path_part(k) != v:
-                return False
-
-        return True
 
     def quote(self, project=None, schema=None, identifier=None):
         policy = filter_null_values({
@@ -132,7 +132,7 @@ class BigQueryRelation(DefaultRelation):
         return self.path.get('schema')
 
     @property
-    def schema(self):
+    def dataset(self):
         return self.path.get('schema')
 
     @property
