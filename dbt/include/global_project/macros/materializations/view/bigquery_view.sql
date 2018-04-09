@@ -1,10 +1,9 @@
-
 {% materialization view, adapter='bigquery' -%}
 
   {%- set identifier = model['name'] -%}
   {%- set non_destructive_mode = (flags.NON_DESTRUCTIVE == True) -%}
 
-  {%- set existing_relations = adapter.list_relations() -%}
+  {%- set existing_relations = adapter.list_relations(schema=schema) -%}
 
   {%- set old_relation = adapter.get_relation(
       relations_list=existing_relations,
@@ -15,11 +14,6 @@
   {%- set target_relation = api.Relation.create(
       identifier=identifier, schema=schema,
       type='view') -%}
-
-  {%- set intermediate_relation = api.Relation.create(
-      identifier=tmp_identifier,
-      schema=schema, type='view') -%}
-
 
   -- drop if exists
   {%- if old_relation is not none -%}

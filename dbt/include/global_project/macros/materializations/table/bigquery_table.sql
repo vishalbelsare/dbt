@@ -1,7 +1,7 @@
 {% macro make_date_partitioned_table(model, relation, dates, should_create, verbose=False) %}
 
   {% if should_create %}
-      {{ adapter.make_date_partitioned_table(relation.dataset, relation.identifier) }}
+      {{ adapter.make_date_partitioned_table(relation.schema, relation.identifier) }}
   {% endif %}
 
   {% for date in dates %}
@@ -30,10 +30,10 @@
 
   {%- set identifier = model['name'] -%}
   {%- set non_destructive_mode = (flags.NON_DESTRUCTIVE == True) -%}
-  {%- set existing_relations = adapter.list_relations(dataset=schema) -%}
+  {%- set existing_relations = adapter.list_relations(schema=schema) -%}
   {%- set old_relation = adapter.get_relation(relations_list=existing_relations, identifier=identifier) -%}
   {%- set exists_not_as_table = (old_relation is not none and not old_relation.is_table) -%}
-  {%- set target_relation = api.Relation(dataset=schema, identifier=identifier, type='table') -%}
+  {%- set target_relation = api.Relation(schema=schema, identifier=identifier, type='table') -%}
   {%- set verbose = config.get('verbose', False) -%}
 
   {# partitions: iterate over each partition, running a separate query in a for-loop #}

@@ -26,6 +26,7 @@ import agate
 class BigQueryAdapter(PostgresAdapter):
 
     context_functions = [
+        # deprecated -- use versions that take relations instead
         "query_for_existing",
         "execute_model",
         "drop",
@@ -36,18 +37,23 @@ class BigQueryAdapter(PostgresAdapter):
         "already_exists",
         "expand_target_column_types",
 
+        # versions of adapter functions that take / return Relations
+        "list_relations",
+        "get_relation",
+        "drop_relation",
+        "rename_relation",
+
         "get_columns_in_table"
     ]
 
     Relation = BigQueryRelation
+    Column = dbt.schema.BigQueryColumn
 
     SCOPE = ('https://www.googleapis.com/auth/bigquery',
              'https://www.googleapis.com/auth/cloud-platform',
              'https://www.googleapis.com/auth/drive')
 
     QUERY_TIMEOUT = 300
-
-    Column = dbt.schema.BigQueryColumn
 
     @classmethod
     def handle_error(cls, error, message, sql):
@@ -173,7 +179,7 @@ class BigQueryAdapter(PostgresAdapter):
                 for relation in all_relations}
 
     @classmethod
-    def list_relations(cls, profile, dataset, model_name=None):
+    def list_relations(cls, profile, schema, model_name=None):
         connection = cls.get_connection(profile, model_name)
         credentials = connection.get('credentials', {})
         client = connection.get('handle')
@@ -189,7 +195,7 @@ class BigQueryAdapter(PostgresAdapter):
 
         return [cls.Relation.create(
             project=credentials.get('project'),
-            dataset=dataset,
+            schema=schema,
             identifier=table.table_id,
             type=relation_types.get(table.table_type))
                 for table in all_tables]
@@ -510,7 +516,7 @@ class BigQueryAdapter(PostgresAdapter):
     @classmethod
     def reset_csv_table(cls, profile, schema, table_name, agate_table,
                         full_refresh=False, model_name=None):
-        relation = cls.Relation(dataset=schema, identifier=table_name)
+        relation = cls.Relation(schema=schema, identifier=table_name)
 
         cls.drop_relation(profile, relation, model_name)
 
