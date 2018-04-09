@@ -21,7 +21,7 @@ class TestRuntimeMaterialization(DBTIntegrationTest):
         # initial full-refresh should have no effect
         self.run_dbt(['run', '--full-refresh'])
 
-        self.assertTablesEqual("seed","view_model")
+        self.assertTablesEqual("seed","view")
         self.assertTablesEqual("seed","incremental")
         self.assertTablesEqual("seed","materialized")
 
@@ -34,7 +34,7 @@ class TestRuntimeMaterialization(DBTIntegrationTest):
 
         self.run_dbt(['run', '--full-refresh'])
 
-        self.assertTablesEqual("seed","view_model")
+        self.assertTablesEqual("seed","view")
         self.assertTablesEqual("seed","incremental")
         self.assertTablesEqual("seed","materialized")
 
