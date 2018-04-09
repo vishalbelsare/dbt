@@ -43,7 +43,7 @@
 
         insert into {{ target_relation }} ({{ dest_cols_csv }}) (
           select {{ dest_cols_csv }}
-          from {{ intermediate_relation }}
+          from {{ intermediate_relation.include(schema=(not create_as_temporary)) }}
         );
       {%- else -%}
         {{ create_table_as(create_as_temporary, target_relation, sql) }}
