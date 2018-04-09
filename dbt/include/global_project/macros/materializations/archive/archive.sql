@@ -117,7 +117,7 @@
   {% endcall %}
 
   {% call statement() %}
-    {{ create_archive_table(target_schema, target_table, dest_columns) }}
+    {{ create_archive_table(target_relation, dest_columns) }}
   {% endcall %}
 
   {% set missing_columns = adapter.get_missing_columns(source_schema, source_table, target_schema, target_table) %}
