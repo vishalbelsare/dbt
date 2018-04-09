@@ -256,7 +256,7 @@ def missing_relation(relation, model=None):
 
 def relation_wrong_type(relation, expected_type, model=None):
     raise_compiler_error(
-        ('Trying to create {intended_type} {relation}, '
+        ('Trying to create {expected_type} {relation}, '
          'but it currently exists as a {current_type}. Either '
          'drop {relation} manually, or run dbt with '
          '`--full-refresh` and dbt will drop it for you.')

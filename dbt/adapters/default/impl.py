@@ -162,6 +162,11 @@ class DefaultAdapter(object):
 
     @classmethod
     def drop_relation(cls, profile, relation, model_name=None):
+        if relation.type is None:
+            dbt.exceptions.raise_compiler_error(
+                'Tried to drop relation {}, but its type is null.'
+                .format(relation))
+
         sql = 'drop {} if exists {} cascade'.format(relation.type, relation)
 
         connection, cursor = cls.add_query(profile, sql, model_name)

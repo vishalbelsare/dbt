@@ -205,8 +205,8 @@ class BigQueryAdapter(PostgresAdapter):
         conn = cls.get_connection(profile, model_name)
         client = conn.get('handle')
 
-        dataset = cls.get_dataset(profile, relation._schema, model_name)
-        relation_object = dataset.table(relation._identifier)
+        dataset = cls.get_dataset(profile, relation.schema, model_name)
+        relation_object = dataset.table(relation.identifier)
         client.delete_table(relation_object)
 
     @classmethod
