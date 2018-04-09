@@ -270,7 +270,7 @@ def try_or_compiler_error(model):
 
 
 def _return(value):
-   raise dbt.exceptions.MacroReturn(value)
+    raise dbt.exceptions.MacroReturn(value)
 
 
 def get_this_relation(db_wrapper, profile, model):

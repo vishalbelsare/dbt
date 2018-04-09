@@ -41,6 +41,27 @@ class BigQueryRelation(DefaultRelation):
         'required': ['project', 'dataset', 'identifier'],
     }
 
+    SCHEMA = {
+        'type': 'object',
+        'properties': {
+            'metadata': {
+                '_type': {
+                    'type': 'string',
+                    'const': 'DefaultRelation',
+                },
+            },
+            'type': {
+                'enum': DefaultRelation.RelationTypes + [None],
+            },
+            'path': PATH_SCHEMA,
+            'include_policy': POLICY_SCHEMA,
+            'quote_policy': POLICY_SCHEMA,
+            'quote_character': {'type': 'string'},
+        },
+        'required': ['metadata', 'type', 'path', 'include_policy',
+                     'quote_policy', 'quote_character']
+    }
+
     PATH_ELEMENTS = ['project', 'dataset', 'identifier']
 
     def matches(self, project=None, dataset=None, identifier=None):
