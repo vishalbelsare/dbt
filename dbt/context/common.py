@@ -276,8 +276,9 @@ def _return(value):
 def get_this_relation(db_wrapper, profile, model):
     table_name = dbt.utils.model_immediate_name(
             model, dbt.flags.NON_DESTRUCTIVE)
-    return db_wrapper.adapter.Relation.create_from_node(profile, model,
-                                                        table_name=table_name)
+
+    return db_wrapper.adapter.Relation.create_from_node(
+        profile, model, table_name=table_name)
 
 
 def generate(model, project, flat_graph, provider=None):
