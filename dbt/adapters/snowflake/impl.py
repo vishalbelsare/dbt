@@ -104,6 +104,31 @@ class SnowflakeAdapter(PostgresAdapter):
         return result
 
     @classmethod
+    def list_relations(cls, profile, model_name=None):
+        sql = """
+        select
+          table_name as name, table_schema as schema, table_type as type
+        from information_schema.tables
+        """.strip()  # noqa
+
+        _, cursor = cls.add_query(
+            profile, sql, model_name, auto_begin=False)
+
+        results = cursor.fetchall()
+
+        relation_type_lookup = {
+            'BASE TABLE': 'table',
+            'VIEW': 'view'
+
+        }
+        return [cls.Relation.create(
+            database=profile.get('database'),
+            schema=schema,
+            identifier=name,
+            type=relation_type_lookup.get(type))
+                for (name, schema, type) in results]
+
+    @classmethod
     def query_for_existing(cls, profile, schemas, model_name=None):
         if not isinstance(schemas, (list, tuple)):
             schemas = [schemas]
@@ -224,3 +249,29 @@ class SnowflakeAdapter(PostgresAdapter):
         res = cursor.fetchone()
 
         logger.debug("Cancel query '{}': {}".format(connection_name, res))
+
+    @classmethod
+    def _get_columns_in_table_sql(cls, schema_name, table_name, database):
+
+        schema_filter = '1=1'
+        if schema_name is not None:
+            schema_filter = "table_schema ilike '{}'".format(schema_name)
+
+        db_prefix = '' if database is None else '{}.'.format(database)
+
+        sql = """
+        select
+            column_name,
+            data_type,
+            character_maximum_length,
+            numeric_precision || ',' || numeric_scale as numeric_size
+
+        from {db_prefix}information_schema.columns
+        where table_name ilike '{table_name}'
+          and {schema_filter}
+        order by ordinal_position
+        """.format(db_prefix=db_prefix,
+                   table_name=table_name,
+                   schema_filter=schema_filter).strip()
+
+        return sql

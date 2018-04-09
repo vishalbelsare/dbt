@@ -49,7 +49,7 @@ class SnowflakeRelation(DefaultRelation):
                     return False
 
             else:
-                if self.get_path_part(k) == v.upper():
+                if self.get_path_part(k) != v.upper():
                     return False
 
         return True
