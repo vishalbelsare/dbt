@@ -9,6 +9,7 @@ import snowflake.connector.errors
 from contextlib import contextmanager
 
 import dbt.compat
+import dbt.deprecations
 import dbt.exceptions
 
 from dbt.adapters.postgres import PostgresAdapter
@@ -131,6 +132,10 @@ class SnowflakeAdapter(PostgresAdapter):
 
     @classmethod
     def query_for_existing(cls, profile, schemas, model_name=None):
+        dbt.deprecations.warn('relations-api',
+                              fn='query_for_existing',
+                              model=model_name)
+
         if not isinstance(schemas, (list, tuple)):
             schemas = [schemas]
 

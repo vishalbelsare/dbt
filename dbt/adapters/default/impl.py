@@ -5,6 +5,7 @@ import agate
 
 from contextlib import contextmanager
 
+import dbt.deprecations
 import dbt.exceptions
 import dbt.flags
 import dbt.schema
@@ -27,15 +28,16 @@ class DefaultAdapter(object):
     requires = {}
 
     context_functions = [
-        # deprecated -- use versions that take relations instead
-        "already_exists",
         "get_columns_in_table",
         "get_missing_columns",
+        "expand_target_column_types",
+
+        # deprecated -- use versions that take relations instead
+        "already_exists",
         "query_for_existing",
         "rename",
         "drop",
         "truncate",
-        "expand_target_column_types",
 
         # just deprecated. going away in a future release
         "quote_schema_and_table",
@@ -94,6 +96,10 @@ class DefaultAdapter(object):
 
     @classmethod
     def query_for_existing(cls, profile, schemas, model_name=None):
+        dbt.deprecations.warn('relations-api',
+                              fn='query_for_existing',
+                              model=model_name)
+
         if not isinstance(schemas, (list, tuple)):
             schemas = [schemas]
 
@@ -151,7 +157,10 @@ class DefaultAdapter(object):
 
     @classmethod
     def drop(cls, profile, schema, relation, relation_type, model_name=None):
-        # add deprecation warning
+        dbt.deprecations.warn('relations-api',
+                              fn='drop',
+                              model=model_name)
+
         identifier = relation
         relation = cls.Relation.create(
             schema=schema,
@@ -173,7 +182,10 @@ class DefaultAdapter(object):
 
     @classmethod
     def truncate(cls, profile, schema, table, model_name=None):
-        # add deprecation warning
+        dbt.deprecations.warn('relations-api',
+                              fn='truncate',
+                              model=model_name)
+
         relation = cls.Relation.create(
             schema=schema,
             identifier=table,
@@ -189,7 +201,10 @@ class DefaultAdapter(object):
 
     @classmethod
     def rename(cls, profile, schema, from_name, to_name, model_name=None):
-        # add deprecation warning
+        dbt.deprecations.warn('relations-api',
+                              fn='rename',
+                              model=model_name)
+
         return cls.rename_relation(
             profile,
             from_relation=cls.Relation.create(
@@ -260,7 +275,6 @@ class DefaultAdapter(object):
     @classmethod
     def get_columns_in_table(cls, profile, schema_name, table_name,
                              database=None, model_name=None):
-
         sql = cls._get_columns_in_table_sql(schema_name, table_name, database)
         connection, cursor = cls.add_query(
             profile, sql, model_name)
@@ -699,7 +713,10 @@ class DefaultAdapter(object):
 
     @classmethod
     def already_exists(cls, profile, schema, table, model_name=None):
-        # TODO add deprecation warning
+        dbt.deprecations.warn('relations-api',
+                              fn='already_exists',
+                              model=model_name)
+
         relation = cls.get_relation(profile, schema=schema, identifier=table)
         return relation is not None
 
@@ -709,6 +726,10 @@ class DefaultAdapter(object):
 
     @classmethod
     def quote_schema_and_table(cls, profile, schema, table, model_name=None):
+        dbt.deprecations.warn('relations-api',
+                              fn='quote_schema_and_table',
+                              model=model_name)
+
         return '{}.{}'.format(cls.quote(schema),
                               cls.quote(table))
 

@@ -3,6 +3,7 @@ from __future__ import absolute_import
 from contextlib import contextmanager
 
 import dbt.compat
+import dbt.deprecations
 import dbt.exceptions
 import dbt.schema
 import dbt.flags as flags
@@ -166,6 +167,10 @@ class BigQueryAdapter(PostgresAdapter):
 
     @classmethod
     def query_for_existing(cls, profile, schemas, model_name=None):
+        dbt.deprecations.warn('relations-api',
+                              fn='query_for_existing',
+                              model=model_name)
+
         if not isinstance(schemas, (list, tuple)):
             schemas = [schemas]
 
@@ -479,6 +484,10 @@ class BigQueryAdapter(PostgresAdapter):
 
     @classmethod
     def quote_schema_and_table(cls, profile, schema, table, model_name=None):
+        dbt.deprecations.warn('relations-api',
+                              fn='quote_schema_and_table',
+                              model=model_name)
+
         return cls.render_relation(profile,
                                    cls.quote(schema),
                                    cls.quote(table))

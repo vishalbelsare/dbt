@@ -33,13 +33,14 @@ class SeedDropExistingDeprecation(DBTDeprecation):
   will be removed in a future version of dbt."""
 
 
-class OldStyleAdapterFunctionsDeprecations(DBTDeprecation):
+class NonRelationAdapterFunctionDeprecation(DBTDeprecation):
     # TODO add link to docs
-    name = 'old-style-adapter-functions'
+    name = 'relations-api'
     description = """
-    This is an old-style adapter function (takes a schema and identifier
-    instead of a Relation object). Please use the new-style functions.
-    You can find more information in the documentation. (ADD LINK)
+    Your project uses a deprecated adapter function '{fn}'.
+    Please use the Relations API instead. You can find
+    more information in the documentation.
+    (ADD LINK)
     """
 
 
