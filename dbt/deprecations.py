@@ -62,7 +62,7 @@ active_deprecations = set()
 deprecations_list = [
     DBTRepositoriesDeprecation(),
     SeedDropExistingDeprecation(),
-    OldStyleAdapterFunctionsDeprecations(),
+    NonRelationAdapterFunctionDeprecation(),
 ]
 
 deprecations = {d.name: d for d in deprecations_list}
