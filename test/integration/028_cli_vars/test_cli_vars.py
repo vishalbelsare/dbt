@@ -25,7 +25,9 @@ class TestCLIVars(DBTIntegrationTest):
             }
         }
         self.run_dbt(["run", "--vars", yaml.dump(cli_vars)])
-        self.run_dbt(["test"])
+
+        # TODO : This change in sensible, but why did it not fail before??
+        self.run_dbt(["test", "--vars", yaml.dump(cli_vars)])
 
 
 class TestCLIVarsSimple(DBTIntegrationTest):
@@ -43,7 +45,7 @@ class TestCLIVarsSimple(DBTIntegrationTest):
         self.use_profile('postgres')
 
         self.run_dbt(["run", "--vars", "simple: abc"])
-        self.run_dbt(["test"])
+        self.run_dbt(["test", "--vars", "simple: abc"])
 
     @attr(type='postgres')
     def test__cli_vars_longer(self):
@@ -51,4 +53,4 @@ class TestCLIVarsSimple(DBTIntegrationTest):
         self.use_profile('postgres')
 
         self.run_dbt(["run", "--vars", "{simple: abc, unused: def}"])
-        self.run_dbt(["test"])
+        self.run_dbt(["test", "--vars", "{simple: abc, unused: def}"])
