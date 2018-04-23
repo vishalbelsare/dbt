@@ -191,8 +191,7 @@ class Var(object):
             self.model_name = model.nice_name
             local_vars = model.config.get('vars', {})
 
-        self.local_vars = local_vars.copy()
-        self.local_vars.update(overrides)
+        self.local_vars = dbt.utils.merge(local_vars, overrides)
 
     def pretty_dict(self, data):
         return json.dumps(data, sort_keys=True, indent=4)

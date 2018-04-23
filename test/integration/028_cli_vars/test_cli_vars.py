@@ -25,8 +25,6 @@ class TestCLIVars(DBTIntegrationTest):
             }
         }
         self.run_dbt(["run", "--vars", yaml.dump(cli_vars)])
-
-        # TODO : This change in sensible, but why did it not fail before??
         self.run_dbt(["test", "--vars", yaml.dump(cli_vars)])
 
 
