@@ -1,8 +1,10 @@
 import dbt.exceptions
-import dbt.parser
 
 from dbt.node_types import NodeType
 from dbt.contracts.graph.parsed import ParsedManifest
+
+from dbt.parser import ParserUtils
+from dbt.parser import *
 
 
 class GraphLoader(object):
@@ -18,7 +20,7 @@ class GraphLoader(object):
             nodes.update(loader.load_all(root_project, all_projects, macros))
 
         manifest = ParsedManifest(nodes=nodes, macros=macros)
-        manifest = dbt.parser.process_refs(manifest, root_project)
+        manifest = ParserUtils.process_refs(manifest, root_project)
         return manifest
 
     @classmethod
@@ -50,7 +52,7 @@ class MacroLoader(ResourceLoader):
     @classmethod
     def load_project(cls, root_project, all_projects, project, project_name,
                      macros):
-        return dbt.parser.load_and_parse_macros(
+        return dbt.parser.MacroParser.load_and_parse(
             package_name=project_name,
             root_project=root_project,
             all_projects=all_projects,
@@ -78,7 +80,7 @@ class ModelLoader(ResourceLoader):
     @classmethod
     def load_project(cls, root_project, all_projects, project, project_name,
                      macros):
-        return dbt.parser.load_and_parse_sql(
+        return dbt.parser.ModelParser.load_and_parse(
                 package_name=project_name,
                 root_project=root_project,
                 all_projects=all_projects,
@@ -93,7 +95,7 @@ class OperationLoader(ResourceLoader):
     @classmethod
     def load_project(cls, root_project, all_projects, project, project_name,
                      macros):
-        return dbt.parser.load_and_parse_macros(
+        return dbt.parser.MacroParser.load_and_parse(
             package_name=project_name,
             root_project=root_project,
             all_projects=all_projects,
@@ -107,7 +109,7 @@ class AnalysisLoader(ResourceLoader):
     @classmethod
     def load_project(cls, root_project, all_projects, project, project_name,
                      macros):
-        return dbt.parser.load_and_parse_sql(
+        return dbt.parser.AnalysisParser.load_and_parse(
             package_name=project_name,
             root_project=root_project,
             all_projects=all_projects,
@@ -122,7 +124,7 @@ class SchemaTestLoader(ResourceLoader):
     @classmethod
     def load_project(cls, root_project, all_projects, project, project_name,
                      macros):
-        return dbt.parser.load_and_parse_yml(
+        return dbt.parser.SchemaParser.load_and_parse(
             package_name=project_name,
             root_project=root_project,
             all_projects=all_projects,
@@ -136,7 +138,7 @@ class DataTestLoader(ResourceLoader):
     @classmethod
     def load_project(cls, root_project, all_projects, project, project_name,
                      macros):
-        return dbt.parser.load_and_parse_sql(
+        return dbt.parser.DataTestParser.load_and_parse(
             package_name=project_name,
             root_project=root_project,
             all_projects=all_projects,
@@ -157,7 +159,7 @@ class ArchiveLoader(ResourceLoader):
 
     @classmethod
     def load_project(cls, root_project, all_projects, macros):
-        return dbt.parser.parse_archives_from_projects(root_project,
+        return dbt.parser.ArchiveParser.load_and_parse(root_project,
                                                        all_projects,
                                                        macros)
 
@@ -170,8 +172,8 @@ class RunHookLoader(ResourceLoader):
 
     @classmethod
     def load_project(cls, root_project, all_projects, macros):
-        return dbt.parser.load_and_parse_run_hooks(root_project, all_projects,
-                                                   macros)
+        return dbt.parser.HookParser.load_and_parse(root_project, all_projects,
+                                                    macros)
 
 
 class SeedLoader(ResourceLoader):
@@ -179,13 +181,12 @@ class SeedLoader(ResourceLoader):
     @classmethod
     def load_project(cls, root_project, all_projects, project, project_name,
                      macros):
-        return dbt.parser.load_and_parse_seeds(
+        return dbt.parser.SeedParser.load_and_parse(
             package_name=project_name,
             root_project=root_project,
             all_projects=all_projects,
             root_dir=project.get('project-root'),
             relative_dirs=project.get('data-paths', []),
-            resource_type=NodeType.Seed,
             macros=macros)
 
 
