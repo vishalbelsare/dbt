@@ -75,7 +75,9 @@ class BaseParser(object):
             node['resource_type'])
 
         node['unique_id'] = node_path
-        node['empty'] = ('raw_sql' in node and len(node['raw_sql'].strip()) == 0) # noqa
+        node['empty'] = (
+            'raw_sql' in node and len(node['raw_sql'].strip()) == 0
+        )
         node['fqn'] = fqn
         node['tags'] = tags
         node['config_reference'] = config
