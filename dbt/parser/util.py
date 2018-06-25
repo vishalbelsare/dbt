@@ -1,6 +1,7 @@
 
 import dbt.utils
 
+
 class ParserUtils(object):
     @classmethod
     def resolve_ref(cls, flat_graph, target_model_name, target_model_package,
@@ -40,7 +41,6 @@ class ParserUtils(object):
             target_model_name,
             None)
 
-
     @classmethod
     def process_refs(cls, manifest, current_project):
         flat_graph = manifest.to_flat_graph()
@@ -66,9 +66,9 @@ class ParserUtils(object):
                     # This may raise. Even if it doesn't, we don't want to add
                     # this node to the graph b/c there is no destination node
                     node.get('config', {})['enabled'] = False
-                    dbt.utils.invalid_ref_fail_unless_test(node,
-                                                           target_model_name,
-                                                           target_model_package)
+                    dbt.utils.invalid_ref_fail_unless_test(
+                            node, target_model_name, target_model_package)
+
                     continue
 
                 target_model_id = target_model.get('unique_id')
