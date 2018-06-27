@@ -74,7 +74,7 @@ def get_model_name_or_none(model):
 def compiler_warning(model, msg):
     name = get_model_name_or_none(model)
     logger.info(
-        "* Compilation warning while compiling model {}:\n* {}\n"
+        "* Compilation warning while compiling {}:\n* {}\n"
         .format(name, msg)
     )
 

@@ -145,10 +145,13 @@ PARSED_NODE_CONTRACT = deep_merge(
                     'type': 'string',
                 }
             },
+            'description': {
+                'type': ['null', 'string']
+            }
         },
         'required': UNPARSED_NODE_CONTRACT['required'] + [
             'unique_id', 'fqn', 'schema', 'refs', 'depends_on', 'empty',
-            'config', 'tags',
+            'config', 'tags', 'description'
         ]
     }
 )

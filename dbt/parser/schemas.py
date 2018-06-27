@@ -17,56 +17,44 @@ from dbt.utils import get_pseudo_test_path
 from dbt.contracts.graph.unparsed import UnparsedNode
 from dbt.parser.base import BaseParser
 
-
-def get_nice_schema_test_name(test_type, test_name, args):
-
-    flat_args = []
-    for arg_name in sorted(args):
-        arg_val = args[arg_name]
-
-        if isinstance(arg_val, dict):
-            parts = arg_val.values()
-        elif isinstance(arg_val, (list, tuple)):
-            parts = arg_val
-        else:
-            parts = [arg_val]
-
-        flat_args.extend([str(part) for part in parts])
-
-    clean_flat_args = [re.sub('[^0-9a-zA-Z_]+', '_', arg) for arg in flat_args]
-    unique = "__".join(clean_flat_args)
-
-    cutoff = 32
-    if len(unique) <= cutoff:
-        label = unique
-    else:
-        label = hashlib.md5(unique.encode('utf-8')).hexdigest()
-
-    filename = '{}_{}_{}'.format(test_type, test_name, label)
-    name = '{}_{}_{}'.format(test_type, test_name, unique)
-
-    return filename, name
+from .schemas_v1 import SchemaParserV1
+from .schemas_v2 import SchemaParserV2
 
 
-def as_kwarg(key, value):
-    test_value = to_string(value)
-    is_function = re.match(r'^\s*(ref|var)\s*\(.+\)\s*$', test_value)
-
-    # if the value is a function, don't wrap it in quotes!
-    if is_function:
-        formatted_value = value
-    else:
-        formatted_value = value.__repr__()
-
-    return "{key}={value}".format(key=key, value=formatted_value)
+# TODO : make this say something about v1, link to docs
+SYNTAX_ERROR_MESSAGE = """dbt was unable to parse the Schema file located at \
+{path}.\n  This error occurred because the configuration you provided did not \
+exactly\n  match the format that dbt expected. Tests in this file will not be \
+run by dbt.\n  The encountered validation error is shown below:\n
+  {error}"""
 
 
 class SchemaParser(BaseParser):
 
+    DEFAULT_SCHEMA_VERSION = 1
+
     @classmethod
-    def parse_schema_test(cls, test_base, model_name, test_config,
-                          test_namespace, test_type, root_project_config,
-                          package_project_config, all_projects, macros=None):
+    def get_test_path(cls, package_name, resource_name):
+        return cls.get_path(NodeType.Test, package_name, resource_name)
+
+    @classmethod
+    def get_parser(cls, schema_version):
+        parsers = {
+            1: SchemaParserV1,
+            2: SchemaParserV2
+        }
+
+        parser = parsers.get(schema_version)
+
+        if not parser:
+            raise RuntimeError("bad version") # TODO
+        else:
+            return parser
+
+    @classmethod
+    def parse_schema_test(cls, source_node, model_name, test_config, test_namespace,
+                          test_name, root_project, source_package,
+                          all_projects, macros=None):
 
         if isinstance(test_config, (basestring, int, float, bool)):
             test_args = {'arg': test_config}
@@ -74,136 +62,207 @@ class SchemaParser(BaseParser):
             test_args = test_config
 
         # sort the dict so the keys are rendered deterministically (for tests)
-        kwargs = [as_kwarg(key, test_args[key]) for key in sorted(test_args)]
+        kwargs = [cls.as_kwarg(key, test_args[key]) for key in sorted(test_args)]
 
         if test_namespace is None:
-            macro_name = "test_{}".format(test_type)
+            macro_name = "test_{}".format(test_name)
         else:
-            macro_name = "{}.test_{}".format(test_namespace, test_type)
+            macro_name = "{}.test_{}".format(test_namespace, test_name)
 
-        raw_sql = "{{{{ {macro}(model=ref('{model}'), {kwargs}) }}}}".format(
-            **{
-                'model': model_name,
-                'macro': macro_name,
-                'kwargs': ", ".join(kwargs)
-            }
-        )
+        raw_sql = "{{{{ {macro}(model=ref('{model}'), {kwargs}) }}}}".format(**{
+            'model': model_name,
+            'macro': macro_name,
+            'kwargs': ", ".join(kwargs)
+        })
 
-        base_path = test_base.get('path')
-        hashed_name, full_name = get_nice_schema_test_name(test_type,
-                                                           model_name,
+        base_path = source_node.get('path')
+        hashed_name, full_name = cls.get_nice_schema_test_name(test_name, model_name,
                                                            test_args)
 
-        hashed_path = get_pseudo_test_path(hashed_name, base_path,
-                                           'schema_test')
-        full_path = get_pseudo_test_path(full_name, base_path,
-                                         'schema_test')
+        hashed_path = get_pseudo_test_path(hashed_name, base_path, 'schema_test')
+        full_path = get_pseudo_test_path(full_name, base_path, 'schema_test')
 
         # supply our own fqn which overrides the hashed version from the path
-        fqn_override = cls.get_fqn(full_path, package_project_config)
-        package_name = test_base.get('package_name')
-        node_path = cls.get_path(NodeType.Test, package_name, full_name)
+        fqn_override = cls.get_fqn(full_path, source_package)
 
         to_return = UnparsedNode(
             name=full_name,
-            resource_type=test_base.get('resource_type'),
-            package_name=package_name,
-            root_path=test_base.get('root_path'),
+            resource_type=source_node.get('resource_type'),
+            package_name=source_node.get('package_name'),
+            root_path=source_node.get('root_path'),
             path=hashed_path,
-            original_file_path=test_base.get('original_file_path'),
+            original_file_path=source_node.get('original_file_path'),
             raw_sql=raw_sql
         )
 
         return cls.parse_node(to_return,
-                              node_path,
-                              root_project_config,
-                              package_project_config,
-                              all_projects,
-                              tags=['schema'],
-                              fqn_extra=None,
-                              fqn=fqn_override,
-                              macros=macros)
+                          cls.get_test_path(source_node.get('package_name'),
+                                        full_name),
+                          root_project,
+                          source_package,
+                          all_projects,
+                          tags=['schema'],
+                          fqn_extra=None,
+                          fqn=fqn_override,
+                          macros=macros)
 
     @classmethod
-    def get_parsed_schema_test(cls, test_node, test_type, model_name, config,
-                               root_project, projects, macros):
+    def get_nice_schema_test_name(cls, test_name, model_name, args):
 
-        package_name = test_node.get('package_name')
+        flat_args = []
+        for arg_name in sorted(args):
+            arg_val = args[arg_name]
+
+            if isinstance(arg_val, dict):
+                parts = arg_val.values()
+            elif isinstance(arg_val, (list, tuple)):
+                parts = arg_val
+            else:
+                parts = [arg_val]
+
+            flat_args.extend([str(part) for part in parts])
+
+        clean_flat_args = [re.sub('[^0-9a-zA-Z_]+', '_', arg) for arg in flat_args]
+        unique = "__".join(clean_flat_args)
+
+        cutoff = 32
+        if len(unique) <= cutoff:
+            label = unique
+        else:
+            label = hashlib.md5(unique.encode('utf-8')).hexdigest()
+
+        filename = '{}_{}_{}'.format(test_name, model_name, label)
+        name = '{}_{}_{}'.format(test_name, model_name, unique)
+
+        return filename, name
+
+
+    @classmethod
+    def as_kwarg(cls, key, value):
+        test_value = to_string(value)
+        is_function = re.match(r'^\s*(ref|var)\s*\(.+\)\s*$', test_value)
+
+        # if the value is a function, don't wrap it in quotes!
+        if is_function:
+            formatted_value = value
+        else:
+            formatted_value = value.__repr__()
+
+        return "{key}={value}".format(key=key, value=formatted_value)
+
+    @classmethod
+    def get_test_context(cls, source_node, model_name, test_name, projects):
+        package_name = source_node.get('package_name')
         test_namespace = None
-        original_test_type = test_type
-        split = test_type.split('.')
+        original_test_name = test_name
+        split = test_name.split('.')
 
         if len(split) > 1:
-            test_type = split[1]
+            test_name = split[1]
             package_name = split[0]
             test_namespace = package_name
 
         source_package = projects.get(package_name)
         if source_package is None:
-            desc = '"{}" test on model "{}"'.format(original_test_type,
-                                                    model_name)
+            desc = '"{}" test on model "{}"'.format(original_test_name, model_name)
             dbt.exceptions.raise_dep_not_found(test_node, desc, test_namespace)
 
-        return cls.parse_schema_test(
-            test_node,
-            model_name,
-            config,
-            test_namespace,
-            test_type,
-            root_project,
-            source_package,
-            all_projects=projects,
-            macros=macros)
+        return {
+            "test_name": test_name,
+            "test_namespace": test_namespace,
+            "source_package": source_package,
+        }
+
 
     @classmethod
-    def parse_schema_tests(cls, tests, root_project, projects, macros=None):
+    def get_test_nodes(cls, schema_specs, root_project, all_projects, macros):
         to_return = {}
 
-        for test in tests:
-            raw_yml = test.get('raw_yml')
-            test_name = "{}:{}".format(test.get('package_name'),
-                                       test.get('path'))
+        for model_name, schema_spec in schema_specs.items():
+            source_node = schema_spec['source']
 
-            try:
-                test_yml = dbt.clients.yaml_helper.load_yaml_text(raw_yml)
-            except dbt.exceptions.ValidationException as e:
-                test_yml = None
-                logger.info("Error reading {} - Skipping\n{}".format(
-                            test_name, e))
+            for column in schema_spec['columns']:
+                column_name = column['name']
 
-            if test_yml is None:
+                for test in column['tests']:
+                    test_context = {
+                        "source_node": source_node,
+                        "model_name": model_name,
+                        "test_config": test['test_config'],
+                        "root_project": root_project,
+                        "all_projects": all_projects,
+                        "macros": macros
+                    }
+
+                    test_context.update(cls.get_test_context(source_node,
+                        model_name, test['test_name'], all_projects))
+
+                    test = cls.parse_schema_test(**test_context)
+                    to_return[test['unique_id']] = test
+
+        return to_return
+
+    @classmethod
+    def try_parse_yml_contents(cls, schema_file):
+        raw_yml = schema_file.get('raw_yml')
+        schema_name = "{}:{}".format(schema_file.get('package_name'), schema_file.get('path'))
+
+        try:
+            return dbt.clients.yaml_helper.load_yaml_text(raw_yml)
+        except dbt.exceptions.ValidationException as e:
+            logger.info("* Error parsing YAML in {}. dbt will skip this file."
+                        "\n{}".format(schema_name, e))
+            return None
+
+    @classmethod
+    def on_error(cls, schema_node, error):
+        path = schema_node.get('original_file_path')
+        dbt.utils.compiler_warning(path, SYNTAX_ERROR_MESSAGE.format(
+                                   path=path, error=error.msg))
+
+    @classmethod
+    def normalize(cls, parser, schema_node, schema_spec):
+        try:
+            parsed = parser.parse(schema_node, schema_spec)
+        except dbt.exceptions.ValidationException as e:
+            # There was an error parsing the yml file. Kind of unfortunate, but
+            # this throws away the whole file even if the error is confined
+            # to a single test config. I think that this is acceptable, as the
+            # schema.yml file is either valid or it's not. Trying to correct
+            # user errors is tricky and error prone, so we're just not going to
+            # do it. TODO : Confirm that this is acceptable behavior
+            cls.on_error(schema_node, e)
+            return None
+
+        return parser.to_schema_spec(parsed)
+
+    @classmethod
+    def normalize_schemas(cls, schema_files, root_project, projects, macros=None):
+        to_return = {}
+
+        for schema_file in schema_files:
+            schema_spec = cls.try_parse_yml_contents(schema_file)
+
+            if schema_spec is None:
                 continue
 
-            no_tests_warning = ("* WARNING: No constraints found for model"
-                                " '{}' in file {}\n")
-            for model_name, test_spec in test_yml.items():
-                if test_spec is None or test_spec.get('constraints') is None:
-                    test_path = test.get('original_file_path', '<unknown>')
-                    logger.warning(no_tests_warning.format(model_name,
-                                   test_path))
-                    continue
+            # Pick the right parser for this version of a schema spec
+            schema_version = schema_spec.get('version', cls.DEFAULT_SCHEMA_VERSION)
+            parser = cls.get_parser(schema_version)
 
-                constraints = test_spec.get('constraints', {})
-                for test_type, configs in constraints.items():
-                    if configs is None:
-                        continue
+            parsed_schema_spec = cls.normalize(parser, schema_file, schema_spec)
 
-                    if not isinstance(configs, (list, tuple)):
+            # Skip invalid schema specs
+            if not parsed_schema_spec:
+                continue
 
-                        dbt.utils.compiler_warning(
-                            model_name,
-                            "Invalid test config given in {} near {}".format(
-                                test.get('path'),
-                                configs))
-                        continue
+            # Check if models are defined in multiple places (this is an error)
+            new_models = set(parsed_schema_spec.keys())
+            seen_models = set(to_return.keys())
+            if len(seen_models.intersection(new_models)) > 0:
+                raise RuntimeError("dupe schema def!!")
 
-                    for config in configs:
-                        to_add = cls.get_parsed_schema_test(
-                                    test, test_type, model_name, config,
-                                    root_project, projects, macros)
-
-                        if to_add is not None:
-                            to_return[to_add.get('unique_id')] = to_add
+            to_return = dbt.utils.merge(to_return, parsed_schema_spec)
 
         return to_return
 
@@ -242,5 +301,4 @@ class SchemaParser(BaseParser):
                 'raw_yml': file_contents
             })
 
-        return cls.parse_schema_tests(result, root_project, all_projects,
-                                      macros)
+        return cls.normalize_schemas(result, root_project, all_projects, macros)

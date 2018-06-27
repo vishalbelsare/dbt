@@ -2,6 +2,7 @@ import json
 import os
 
 from dbt.contracts.graph.parsed import ParsedManifest, ParsedNode, ParsedMacro
+from dbt.contracts.catalog import Catalog
 from dbt.adapters.factory import get_adapter
 from dbt.clients.system import write_file
 from dbt.compat import bigint
@@ -115,9 +116,10 @@ class GenerateTask(BaseTask):
             for row in results
         ]
         results = unflatten(results)
+        catalog = Catalog(**results)
 
         path = os.path.join(self.project['target-path'], CATALOG_FILENAME)
-        write_file(path, json.dumps(results))
+        write_file(path, json.dumps(catalog.serialize()))
 
         dbt.ui.printer.print_timestamped_line(
             'Catalog written to {}'.format(os.path.abspath(path))

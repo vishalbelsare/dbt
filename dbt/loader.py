@@ -2,6 +2,7 @@ import dbt.exceptions
 
 from dbt.node_types import NodeType
 from dbt.contracts.graph.parsed import ParsedManifest
+from dbt.contracts.graph.schema_spec import SchemaSpecCollection
 
 from dbt.parser import ParserUtils
 from dbt.parser import *
@@ -19,7 +20,27 @@ class GraphLoader(object):
         for loader in cls._LOADERS:
             nodes.update(loader.load_all(root_project, all_projects, macros))
 
+
+        # 1. Invite test nodes to the party
+        schema_spec_collection = SchemaTestLoader.load_all(root_project, all_projects, macros)
+        test_nodes = SchemaParser.get_test_nodes(schema_spec_collection.serialize(), root_project, all_projects, macros)
+        nodes.update(test_nodes)
+
         manifest = ParsedManifest(nodes=nodes, macros=macros)
+
+        # this shit is so bad lol... but it works!!
+
+        # 2. Augment model nodes with descriptions
+        for unique_id, node in nodes.items():
+            if node['resource_type'] == 'model':
+                description = schema_spec_collection.get_description_for_model(node['name'])
+                unique_id = node.unique_id
+                manifest_node = manifest.nodes[unique_id]
+
+                described_node = manifest_node.incorporate(description=description)
+                manifest.nodes[unique_id] = described_node
+
+        # 3. "Link" the nodes!
         manifest = ParserUtils.process_refs(manifest, root_project)
         return manifest
 
@@ -132,6 +153,16 @@ class SchemaTestLoader(ResourceLoader):
             relative_dirs=project.get('source-paths', []),
             macros=macros)
 
+    @classmethod
+    def load_all(cls, root_project, all_projects, macros=None):
+        to_return = {}
+
+        for project_name, project in all_projects.items():
+            to_return.update(cls.load_project(root_project, all_projects,
+                                              project, project_name, macros))
+
+        return SchemaSpecCollection(**to_return)
+
 
 class DataTestLoader(ResourceLoader):
 
@@ -193,7 +224,6 @@ class SeedLoader(ResourceLoader):
 # node loaders
 GraphLoader.register(ModelLoader)
 GraphLoader.register(AnalysisLoader)
-GraphLoader.register(SchemaTestLoader)
 GraphLoader.register(DataTestLoader)
 GraphLoader.register(RunHookLoader)
 GraphLoader.register(ArchiveLoader)
