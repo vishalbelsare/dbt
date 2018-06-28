@@ -1,10 +1,15 @@
 
-{% macro test_accepted_values(model, field, values) %}
+{% macro test_accepted_values(model) %}
+
+{% set column_name = kwargs.get('column_name', kwargs.get('field')) %}
+{% set values = kwargs.get('accept', kwargs.get('values')) %}
+
+{{ log(kwargs, info=True) }}
 
 with all_values as (
 
     select distinct
-        {{ field }} as value_field
+        {{ column_name }} as value_field
 
     from {{ model }}
 
@@ -27,5 +32,6 @@ validation_errors as (
 
 select count(*)
 from validation_errors
+
 
 {% endmacro %}

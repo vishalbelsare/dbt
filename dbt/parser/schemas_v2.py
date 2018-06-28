@@ -31,16 +31,17 @@ run by dbt.\n  The encountered validation error is shown below:\n
 class SchemaParserV2(BaseParser):
 
     @classmethod
-    def normalize_tests(cls, column_tests):
+    def normalize_tests(cls, column_name, column_tests):
         normalized_tests = []
         for column_test in column_tests:
 
-            if isinstance(column_test, str):
+            if isinstance(column_test, basestring):
                 test_name = column_test
-                config = {}
+                config = {"arg": column_name}
             elif isinstance(column_test, dict):
                 test_name = list(column_test.keys()).pop()
-                config = column_test[test_name]
+                config = {"column_name": column_name}
+                config.update(column_test[test_name])
             else:
                 raise RuntimeError("bad")
 
@@ -80,7 +81,7 @@ class SchemaParserV2(BaseParser):
                 column_def = {
                     "name" : column_name,
                     "description": column.get('description'),
-                    "tests": cls.normalize_tests(column.get('tests', []))
+                    "tests": cls.normalize_tests(column_name, column.get('tests', []))
                 }
 
                 to_return[model_name]['columns'].append(column_def)
