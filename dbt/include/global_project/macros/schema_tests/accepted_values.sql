@@ -4,8 +4,6 @@
 {% set column_name = kwargs.get('column_name', kwargs.get('field')) %}
 {% set values = kwargs.get('accept', kwargs.get('values')) %}
 
-{{ log(kwargs, info=True) }}
-
 with all_values as (
 
     select distinct
