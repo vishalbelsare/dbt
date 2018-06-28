@@ -75,7 +75,7 @@ class BaseParser(object):
             node['resource_type'])
 
         node['unique_id'] = node_path
-        node['description'] = None
+        node['description'] = node.get('description')
         node['empty'] = (
             'raw_sql' in node and len(node['raw_sql'].strip()) == 0
         )

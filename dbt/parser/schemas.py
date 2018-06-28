@@ -1,6 +1,7 @@
 import os
 import re
 import hashlib
+import json
 
 import dbt.exceptions
 import dbt.flags
@@ -64,10 +65,13 @@ class SchemaParser(BaseParser):
         # sort the dict so the keys are rendered deterministically (for tests)
         kwargs = [cls.as_kwarg(key, test_args[key]) for key in sorted(test_args)]
 
+        # TODO : Clean this up!
         if test_namespace is None:
             macro_name = "test_{}".format(test_name)
+            description_name = test_name
         else:
             macro_name = "{}.test_{}".format(test_namespace, test_name)
+            description_name = "{}.{}".format(test_namespace, test_name)
 
         raw_sql = "{{{{ {macro}(model=ref('{model}'), {kwargs}) }}}}".format(**{
             'model': model_name,
@@ -85,6 +89,11 @@ class SchemaParser(BaseParser):
         # supply our own fqn which overrides the hashed version from the path
         fqn_override = cls.get_fqn(full_path, source_package)
 
+        description = json.dumps({
+            "test": description_name,
+            "arguments": test_config
+        })
+
         to_return = UnparsedNode(
             name=full_name,
             resource_type=source_node.get('resource_type'),
@@ -92,7 +101,8 @@ class SchemaParser(BaseParser):
             root_path=source_node.get('root_path'),
             path=hashed_path,
             original_file_path=source_node.get('original_file_path'),
-            raw_sql=raw_sql
+            raw_sql=raw_sql,
+            description=description
         )
 
         return cls.parse_node(to_return,

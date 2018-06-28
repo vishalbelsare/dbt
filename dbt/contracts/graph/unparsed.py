@@ -38,7 +38,13 @@ UNPARSED_BASE_CONTRACT = {
         },
         'index': {
             'type': 'integer',
-        }
+        },
+        'description': {
+            'type': ['null', 'string'],
+            'description': (
+                'A description for this node, either automatically generated, '
+                'or explicitly defined by the user '),
+        },
     },
     'required': ['package_name', 'root_path', 'path', 'original_file_path',
                  'raw_sql']
@@ -71,7 +77,7 @@ UNPARSED_NODE_CONTRACT = deep_merge(
                     # we need this if parse_node is going to handle archives.
                     NodeType.Archive,
                 ]
-            }
+            },
         },
         'required': UNPARSED_BASE_CONTRACT['required'] + [
             'resource_type', 'name']
