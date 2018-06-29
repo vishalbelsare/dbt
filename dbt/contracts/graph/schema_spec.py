@@ -13,9 +13,9 @@ UNPARSED_SCHEMA_SPEC_CONTRACT = {
         "root_path": {
             "type": "string"
         },
-        "resource_type": {
-            "type": "string"
-        },
+        #"resource_type": {
+        #    "type": "string"
+        #},
         "path": {
             "type": "string"
         },
@@ -29,7 +29,7 @@ UNPARSED_SCHEMA_SPEC_CONTRACT = {
             "type": "string"
         }
     },
-    "required": ["name", "root_path", "resource_type", "path", "original_file_path", "package_name", "raw_yml"]
+    "required": ["name", "root_path", "path", "original_file_path", "package_name", "raw_yml"] # resource_type?
 }
 
 RAW_SCHEMA_SPEC_V1_CONTRACT = {
@@ -185,6 +185,72 @@ SCHEMA_SPEC_COLLECTION = {
     }
 }
 
+PARSED_SOURCE_SPEC = {
+    "type": "object",
+    "additionalProperties": False,
+    "patternProperties": {
+        ".*": {
+            'type': 'object',
+            'properties': {
+                'source': UNPARSED_SCHEMA_SPEC_CONTRACT,
+                'parent': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {
+                            'type': 'string',
+                        },
+                        'description': {
+                            'type': ['null', 'string']
+                        }
+                    }
+                },
+                'name': {
+                    'type': 'string'
+                },
+                'sql_table_name': {
+                    'type': 'string'
+                },
+                "options": {
+                    'type': ['object']
+                },
+                'description': {
+                    'type': ['null', 'string']
+                },
+                'columns': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'name': {
+                                'type': 'string'
+                            },
+                            'description': {
+                                'type': ['null', 'string']
+                            },
+                            # This is the only difference between v2 spec and SchemaSpec
+                            'tests': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'test_name': {
+                                            'type': 'string',
+                                        },
+                                        'test_config': {
+                                            'type': ['object', 'string']
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    'required': [] # TODO
+}
+
 
 class RawSchemaSpecV1(APIObject):
     SCHEMA = RAW_SCHEMA_SPEC_V1_CONTRACT
@@ -196,6 +262,10 @@ class RawSchemaSpecV2(APIObject):
 
 class ParsedSchemaSpec(APIObject):
     SCHEMA = PARSED_SCHEMA_SPEC
+
+
+class ParsedSourceSpec(APIObject):
+    SCHEMA = PARSED_SOURCE_SPEC
 
 
 class SchemaSpecCollection(APIObject):

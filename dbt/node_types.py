@@ -8,6 +8,7 @@ class NodeType(object):
     Macro = 'macro'
     Operation = 'operation'
     Seed = 'seed'
+    Source = 'source'
 
     @classmethod
     def executable(cls):
@@ -25,6 +26,7 @@ class NodeType(object):
         return [
             cls.Model,
             cls.Seed,
+            cls.Source,
         ]
 
 

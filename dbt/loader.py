@@ -32,6 +32,11 @@ class GraphLoader(object):
 
         # 2. Augment model nodes with descriptions
         for unique_id, node in nodes.items():
+            try:
+                node['resource_type']
+            except Exception as e:
+                import ipdb; ipdb.set_trace()
+                pass
             if node['resource_type'] == 'model':
                 description = schema_spec_collection.get_description_for_model(node['name'])
                 unique_id = node.unique_id

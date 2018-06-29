@@ -111,6 +111,7 @@ class SchemaParserV1(BaseParser):
 
             to_return[model_name] = {
                 "name": model_name,
+                "resource_type": NodeType.Test,
                 "description": None,
                 "options": {},
                 "columns": by_column_list,

@@ -96,7 +96,7 @@ class SchemaParser(BaseParser):
 
         to_return = UnparsedNode(
             name=full_name,
-            resource_type=source_node.get('resource_type'),
+            resource_type=NodeType.Test,
             package_name=source_node.get('package_name'),
             root_path=source_node.get('root_path'),
             path=hashed_path,
@@ -183,32 +183,75 @@ class SchemaParser(BaseParser):
             "source_package": source_package,
         }
 
+    @classmethod
+    def get_schema_tests(cls, model_name, schema_spec, root_project, all_projects, macros):
+        to_return = {}
+
+        source_node = schema_spec['source']
+        for column in schema_spec['columns']:
+            column_name = column['name']
+
+            for test in column['tests']:
+                test_context = {
+                    "source_node": source_node,
+                    "model_name": model_name,
+                    "test_config": test['test_config'],
+                    "root_project": root_project,
+                    "all_projects": all_projects,
+                    "macros": macros
+                }
+
+                test_context.update(cls.get_test_context(source_node,
+                    model_name, test['test_name'], all_projects))
+
+                test = cls.parse_schema_test(**test_context)
+                to_return[test['unique_id']] = test
+
+        return to_return
+
+    @classmethod
+    def get_sources(cls, source_name, schema_spec, root_project, all_projects, macros):
+        source_node = schema_spec['source']
+
+        package_name = source_node.get('package_name')
+        path = cls.get_path(NodeType.Source, package_name, source_name)
+
+        to_return = UnparsedNode(
+            name=source_name,
+            resource_type=NodeType.Source,
+            package_name=package_name,
+            root_path=source_node.get('root_path'),
+            path=path,
+            original_file_path=source_node.get('original_file_path'),
+            raw_sql=schema_spec['sql_table_name'],
+            description=schema_spec.get('description')
+        )
+
+        source_package = all_projects.get(source_node.get('package_name'))
+        res = cls.parse_node(to_return,
+                          path,
+                          root_project,
+                          source_package,
+                          all_projects,
+                          tags=['source'],
+                          fqn_extra=None,
+                          fqn=None, # ???
+                          macros=macros)
+
+        return {res['unique_id']: res}
 
     @classmethod
     def get_test_nodes(cls, schema_specs, root_project, all_projects, macros):
         to_return = {}
 
-        for model_name, schema_spec in schema_specs.items():
-            source_node = schema_spec['source']
-
-            for column in schema_spec['columns']:
-                column_name = column['name']
-
-                for test in column['tests']:
-                    test_context = {
-                        "source_node": source_node,
-                        "model_name": model_name,
-                        "test_config": test['test_config'],
-                        "root_project": root_project,
-                        "all_projects": all_projects,
-                        "macros": macros
-                    }
-
-                    test_context.update(cls.get_test_context(source_node,
-                        model_name, test['test_name'], all_projects))
-
-                    test = cls.parse_schema_test(**test_context)
-                    to_return[test['unique_id']] = test
+        for node_name, schema_spec in schema_specs.items():
+            if schema_spec['resource_type'] == NodeType.Test:
+                to_return.update(cls.get_schema_tests(node_name, schema_spec, root_project, all_projects, macros))
+            elif schema_spec['resource_type'] == NodeType.Source:
+                to_return.update(cls.get_sources(node_name, schema_spec, root_project, all_projects, macros))
+                # sheit, we also need to return test nodes that are defined in sources
+                # all of this is so bad lol
+                # go outside, come back, clean up github issues. This is ok
 
         return to_return
 
@@ -304,7 +347,6 @@ class SchemaParser(BaseParser):
             result.append({
                 'name': name,
                 'root_path': root_dir,
-                'resource_type': NodeType.Test,
                 'path': file_match.get('relative_path'),
                 'original_file_path': original_file_path,
                 'package_name': package_name,

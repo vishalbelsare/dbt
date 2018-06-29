@@ -69,6 +69,7 @@ UNPARSED_NODE_CONTRACT = deep_merge(
                     NodeType.Model,
                     NodeType.Test,
                     NodeType.Analysis,
+                    NodeType.Source,
                     # Note: Hooks fail if you remove this, even though it's
                     # also allowed in ParsedMacro, which seems wrong.
                     # Maybe need to move hook operations into macros?

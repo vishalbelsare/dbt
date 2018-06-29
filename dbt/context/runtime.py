@@ -4,6 +4,7 @@ import dbt.clients.jinja
 import dbt.context.common
 import dbt.flags
 import dbt.parser
+from dbt.node_types import NodeType
 
 from dbt.logger import GLOBAL_LOGGER as logger  # noqa
 
@@ -54,10 +55,16 @@ def ref(db_wrapper, model, project_cfg, profile, flat_graph):
                 type=adapter.Relation.CTE,
                 identifier=add_ephemeral_model_prefix(
                     target_model_name)).quote(identifier=False)
+        elif target_model['resource_type'] == NodeType.Source:
+            # TODO
+            return target_model['raw_sql']
         else:
             return adapter.Relation.create_from_node(profile, target_model)
-
     return do_ref
+
+
+def source(*args, **kwargs):
+    return ref(*args, **kwargs)
 
 
 class Config:
