@@ -209,49 +209,15 @@ class SchemaParser(BaseParser):
 
         return to_return
 
-    @classmethod
-    def get_sources(cls, source_name, schema_spec, root_project, all_projects, macros):
-        source_node = schema_spec['source']
-
-        package_name = source_node.get('package_name')
-        path = cls.get_path(NodeType.Source, package_name, source_name)
-
-        to_return = UnparsedNode(
-            name=source_name,
-            resource_type=NodeType.Source,
-            package_name=package_name,
-            root_path=source_node.get('root_path'),
-            path=path,
-            original_file_path=source_node.get('original_file_path'),
-            raw_sql=schema_spec['sql_table_name'],
-            description=schema_spec.get('description')
-        )
-
-        source_package = all_projects.get(source_node.get('package_name'))
-        res = cls.parse_node(to_return,
-                          path,
-                          root_project,
-                          source_package,
-                          all_projects,
-                          tags=['source'],
-                          fqn_extra=None,
-                          fqn=None, # ???
-                          macros=macros)
-
-        return {res['unique_id']: res}
 
     @classmethod
     def get_test_nodes(cls, schema_specs, root_project, all_projects, macros):
         to_return = {}
 
         for node_name, schema_spec in schema_specs.items():
+            # This could eventually be a Source node
             if schema_spec['resource_type'] == NodeType.Test:
                 to_return.update(cls.get_schema_tests(node_name, schema_spec, root_project, all_projects, macros))
-            elif schema_spec['resource_type'] == NodeType.Source:
-                to_return.update(cls.get_sources(node_name, schema_spec, root_project, all_projects, macros))
-                # sheit, we also need to return test nodes that are defined in sources
-                # all of this is so bad lol
-                # go outside, come back, clean up github issues. This is ok
 
         return to_return
 

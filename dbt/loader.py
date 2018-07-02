@@ -20,6 +20,7 @@ class GraphLoader(object):
         for loader in cls._LOADERS:
             nodes.update(loader.load_all(root_project, all_projects, macros))
 
+        # TODO : Manage this flow _much_ better
 
         # 1. Invite test nodes to the party
         schema_spec_collection = SchemaTestLoader.load_all(root_project, all_projects, macros)
@@ -27,8 +28,6 @@ class GraphLoader(object):
         nodes.update(test_nodes)
 
         manifest = ParsedManifest(nodes=nodes, macros=macros)
-
-        # this shit is so bad lol... but it works!!
 
         # 2. Augment model nodes with descriptions
         for unique_id, node in nodes.items():
@@ -45,7 +44,7 @@ class GraphLoader(object):
                 described_node = manifest_node.incorporate(description=description)
                 manifest.nodes[unique_id] = described_node
 
-        # 3. "Link" the nodes!
+        # 3. "Link" the nodes
         manifest = ParserUtils.process_refs(manifest, root_project)
         return manifest
 

@@ -359,8 +359,7 @@ def _add_model_context(context, node, project_cfg, flat_graph, db_wrapper,
         "model": node,
         "sql": node.get('injected_sql'),
         "this": get_this_relation(db_wrapper, project_cfg, profile, node),
-        "ref": provider.ref(db_wrapper, node, project_cfg, profile, flat_graph),
-        "source": provider.source(db_wrapper, node, project_cfg, profile, flat_graph)
+        "ref": provider.ef(db_wrapper, node, project_cfg, profile, flat_graph)
     }
 
     return dbt.utils.merge(context, model_context)

@@ -69,7 +69,6 @@ UNPARSED_NODE_CONTRACT = deep_merge(
                     NodeType.Model,
                     NodeType.Test,
                     NodeType.Analysis,
-                    NodeType.Source,
                     # Note: Hooks fail if you remove this, even though it's
                     # also allowed in ParsedMacro, which seems wrong.
                     # Maybe need to move hook operations into macros?
@@ -78,7 +77,7 @@ UNPARSED_NODE_CONTRACT = deep_merge(
                     # we need this if parse_node is going to handle archives.
                     NodeType.Archive,
                 ]
-            },
+            }
         },
         'required': UNPARSED_BASE_CONTRACT['required'] + [
             'resource_type', 'name']

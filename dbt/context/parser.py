@@ -7,7 +7,7 @@ execute = False
 
 
 def ref(db_wrapper, model, project_cfg, profile, flat_graph):
-    def do_ref(*args):
+    def ref(*args):
         if len(args) == 1 or len(args) == 2:
             model['refs'].append(list(args))
 
@@ -16,11 +16,9 @@ def ref(db_wrapper, model, project_cfg, profile, flat_graph):
 
         return db_wrapper.adapter.Relation.create_from_node(profile, model)
 
-    return do_ref
+    return ref
 
 
-def source(*args, **kwargs):
-    return ref(*args, **kwargs)
 
 
 class Config:

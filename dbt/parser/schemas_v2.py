@@ -92,40 +92,12 @@ class SchemaParserV2(BaseParser):
         return ParsedSchemaSpec(**to_return)
 
     @classmethod
-    def parse_schema_spec_sources(cls, parsed, source_schemas):
-        to_return = {}
-
-        for source_schema in source_schemas:
-            source_name = source_schema.get('name')
-
-            for table in source_schema.get('tables', []):
-                table_name = table.get('name')
-
-                to_return[table_name] = {
-                    # These are duplicated for every source table. Is that dumb? TODO
-                    "parent": {
-                        "name": source_schema.get('name'),
-                        "description": source_schema.get('description'),
-                    },
-                    "resource_type": NodeType.Source,
-                    "name": table_name,
-                    "sql_table_name": table.get("sql_table_name"),
-                    "description": table.get('description'),
-                    "options": table.get('options', {}),
-                    "columns": cls.parse_schema_spec_columns(table),
-                    "source": parsed.source,
-                }
-
-        return ParsedSourceSpec(**to_return)
-
-    @classmethod
     def to_schema_spec(cls, parsed):
         schema_spec = parsed.data
 
         model_schemas = cls.parse_schema_spec_models(parsed, schema_spec['models']).serialize()
-        source_schemas = cls.parse_schema_spec_sources(parsed, schema_spec['sources']).serialize()
 
-        return dbt.utils.merge(source_schemas, model_schemas)
+        return model_schemas
 
 
     @classmethod
