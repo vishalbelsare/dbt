@@ -27,6 +27,15 @@ from dbt.logger import GLOBAL_LOGGER as logger
 graph_file_name = 'graph.gpickle'
 manifest_file_name = 'manifest.json'
 
+import datetime
+
+class DateEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, datetime.date) or isinstance(o, datetime.datetime):
+            print("FOUND A DATETIME: {}".format(o))
+            return o.isoformat()
+
+        return json.JSONEncoder.default(self, o)
 
 def print_compile_stats(stats):
     names = {
@@ -215,7 +224,7 @@ class Compiler(object):
         """
         filename = manifest_file_name
         manifest_path = os.path.join(self.project['target-path'], filename)
-        write_file(manifest_path, json.dumps(manifest.serialize()))
+        write_file(manifest_path, json.dumps(manifest.serialize(), cls=DateEncoder))
 
     def write_graph_file(self, linker):
         filename = graph_file_name
