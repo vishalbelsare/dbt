@@ -190,19 +190,24 @@ CONNECTION_CONTRACT = {
 }
 
 
-class PostgresCredentials(APIObject):
+class Credentials(APIObject):
+    """Common base class for credentials. This is not valid to instantiate"""
+    SCHEMA = NotImplemented
+
+
+class PostgresCredentials(Credentials):
     SCHEMA = POSTGRES_CREDENTIALS_CONTRACT
 
 
-class RedshiftCredentials(APIObject):
+class RedshiftCredentials(Credentials):
     SCHEMA = REDSHIFT_CREDENTIALS_CONTRACT
 
 
-class SnowflakeCredentials(APIObject):
+class SnowflakeCredentials(Credentials):
     SCHEMA = SNOWFLAKE_CREDENTIALS_CONTRACT
 
 
-class BigQueryCredentials(APIObject):
+class BigQueryCredentials(Credentials):
     SCHEMA = BIGQUERY_CREDENTIALS_CONTRACT
 
 
@@ -214,11 +219,29 @@ CREDENTIALS_MAPPING = {
 }
 
 
+def create_credentials(typename, credentials):
+    if typename not in CREDENTIALS_MAPPING:
+        dbt.exceptions.raise_unrecognized_credentials_type(
+            typename, CREDENTIALS_MAPPING.keys()
+        )
+    cls = CREDENTIALS_MAPPING[typename]
+    return cls(**credentials)
+
+
 class Connection(APIObject):
     SCHEMA = CONNECTION_CONTRACT
+    def __init__(self, *args, **kwargs):
+        super(Connection, self).__init__(*args, **kwargs)
+        # this will validate itself in its own __init__.
+        self._credentials = create_credentials(self.type,
+                                               self._contents['credentials'])
+
 
     def validate(self):
         super(Connection, self).validate()
         # make sure our credentials match our adapter type
-        ContractType = CREDENTIALS_MAPPING.get(self.get('type'))
-        ContractType(**self.get('credentials'))
+        _ = self.credentials
+
+    @property
+    def credentials(self):
+        return self._credentials
