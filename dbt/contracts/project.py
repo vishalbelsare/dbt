@@ -44,11 +44,11 @@ PROJECT_CONTRACT = {
         },
         'version': {
             'type': 'string',
-            # I got this from here, it seems reasonable enough:
-            # https://github.com/sindresorhus/semver-regex/blob/944928/index.js
             'pattern': (
-                r'^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[\da-z-]+'
-                r'(?:\.[\da-z-]+)*)?(?:\+[\da-z-]+(?:\.[\da-z-]+)*)?$'
+                # this does not support the full semver (does not allow a
+                # trailing -fooXYZ) and is not restrictive enough for full
+                # semver, (allows '1.0'). But it's like 'semver lite'.
+                r'^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(\.(?:0|[1-9]\d*))?$'
             ),
         },
         'source-paths': {
@@ -87,6 +87,18 @@ PROJECT_CONTRACT = {
         },
         'log-path': {
             'type': 'string',
+        },
+        'quoting': {
+            'type': 'object',
+            'additionalProperties': False,
+            'properties': {
+                'identifier': {
+                    'type': 'boolean',
+                },
+                'schema': {
+                    'type': 'boolean',
+                },
+            },
         },
         'models': {
             'type': 'object',
@@ -193,7 +205,7 @@ PACKAGE_FILE_CONTRACT = {
 }
 
 
-class PackageList(APIObject):
+class PackageConfig(APIObject):
     SCHEMA = PACKAGE_FILE_CONTRACT
     @property
     def packages(self):

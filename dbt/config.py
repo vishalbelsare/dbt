@@ -5,7 +5,7 @@ import dbt.exceptions
 import dbt.clients.yaml_helper
 import dbt.clients.system
 from dbt.contracts.connection import Connection, create_credentials
-from dbt.contracts.project import Project, Configuration, PackageList
+from dbt.contracts.project import Project, Configuration, PackageConfig
 from dbt.context.common import env_var
 from dbt import compat
 
@@ -53,6 +53,19 @@ def colorize_output(config):
 DEFAULT_THREADS = 1
 DEFAULT_SEND_ANONYMOUS_USAGE_STATS = True
 DEFAULT_USE_COLORS = True
+DEFAULT_QUOTING_GLOBAL = {
+    'identifier': True,
+    'schema': True,
+}
+# some adapters need different quoting rules, for example snowflake gets a bit
+# weird with quoting on
+DEFAULT_QUOTING_ADAPTER = {
+    'snowflake': {
+        'identifier': False,
+        'schema': False,
+    },
+}
+
 DEFAULT_PROFILES_DIR = os.path.join(os.path.expanduser('~'), '.dbt')
 
 
@@ -68,8 +81,8 @@ def _get_profile(args, profile_name=None):
     profile, and the name of the non-default target to use, if specified,
     return the global user configuration, the selected profile, and its name.
     """
-    if args.profile_name is not None:
-        profile_name = args.profile_name
+    if args.profile is not None:
+        profile_name = args.profile
     if profile_name is None:
         raise RuntimeError(
             'Profile name must be set in the project file, or via --project '
@@ -88,8 +101,8 @@ def _get_profile(args, profile_name=None):
             'outputs not specified in profile {} (TODO: real error)'
             .format(profile_name))
 
-    if target_name_override is not None:
-        target = target_name_override
+    if args.target is not None:
+        target = args.target
     elif 'target' in profile:
         target = profile['target']
     else:
@@ -124,9 +137,10 @@ class RuntimeConfig(object):
     """
     def __init__(self, project_name, version, source_paths, macro_paths,
                  data_paths, test_paths, analysis_paths, docs_paths,
-                 target_path, clean_targets, log_path, models, on_run_start,
-                 on_run_end, archive, profile_name, send_anonymous_usage_stats,
-                 use_colors, threads, credentials, packages):
+                 target_path, clean_targets, log_path, quoting, models,
+                 on_run_start, on_run_end, archive, profile_name,
+                 send_anonymous_usage_stats, use_colors, threads, credentials,
+                 packages):
         # 'project'
         self.project_name = project_name
         self.version = version
@@ -139,6 +153,7 @@ class RuntimeConfig(object):
         self.target_path = target_path
         self.clean_targets = clean_targets
         self.log_path = log_path
+        self.quoting = quoting
         self.models = models
         self.on_run_start = on_run_start
         self.on_run_end = on_run_end
@@ -150,6 +165,9 @@ class RuntimeConfig(object):
         self.threads = threads
         self.credentials = credentials
         # 'package'
+        # TODO: instead of the contracts, should this instantiate the package
+        # objects defined in dbt.tasks.deps? Should those things all subclass
+        # from the contracts/just be the contracts?
         self.packages = packages
 
     @classmethod
@@ -176,6 +194,8 @@ class RuntimeConfig(object):
         clean_targets = project_dict.get('clean-targets', [target_path])
         profile = project_dict.get('profile')
         log_path = project_dict.get('log-path', 'logs')
+        # in the default case we'll populate this once we know the adapter type
+        quoting_overrides = project_dict.get('quoting', {})
         models = project_dict.get('models', {})
         on_run_start = project_dict.get('on-run-start', [])
         on_run_end = project_dict.get('on-run-end', [])
@@ -206,7 +226,11 @@ class RuntimeConfig(object):
                 .format(profile_name))
         typename = selected_profile.pop('type')
         credentials = create_credentials(typename, selected_profile)
-        packages = PackageList(**packages_dict)
+        quoting = deepcopy(
+            DEFAULT_QUOTING_ADAPTER.get(typename, DEFAULT_QUOTING_GLOBAL)
+        )
+        quoting.update(quoting_overrides)
+        packages = PackageConfig(**packages_dict)
 
         return cls(
             project_name=name,
@@ -220,6 +244,7 @@ class RuntimeConfig(object):
             target_path=target_path,
             clean_targets=clean_targets,
             log_path=log_path,
+            quoting=quoting,
             models=models,
             on_run_start=on_run_start,
             on_run_end=on_run_end,
@@ -245,6 +270,7 @@ class RuntimeConfig(object):
             'target-path': self.target_path,
             'clean-targets': self.clean_targets,
             'log-path': self.log_path,
+            'quoting': self.quoting,
             'models': self.models,
             'on-run-start': self.on_run_start,
             'on-run-end': self.on_run_end,
@@ -282,7 +308,7 @@ class RuntimeConfig(object):
             raise RuntimeError('no dbt_project.yml (TODO: real error)')
 
         project_dict = _load_yaml(project_yaml_filepath)
-        packages_dict = {}
+        packages_dict = {'packages': []}
         if dbt.clients.system.path_exists(package_filepath):
             packages_dict = _load_yaml(package_filepath)
         return cls.from_project_config(args, project_dict, packages_dict)

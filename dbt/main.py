@@ -201,6 +201,7 @@ def invoke_dbt(parsed):
     proj = None
 
     try:
+        cfg = config.RuntimeConfig.from_args(parsed)
         proj = project.read_project(
             'dbt_project.yml',
             parsed.profiles_dir,
@@ -241,6 +242,11 @@ def invoke_dbt(parsed):
             result_type="invalid_profile")
 
         return None
+    except:
+        # if we fail here, the logger has not yet been fully set up and the
+        # stack  trace will be lost. Log it (at least for now, in development)
+        logger.info(traceback.format_exc())
+        raise
 
     if parsed.target is not None:
         targets = proj.cfg.get('outputs', {}).keys()

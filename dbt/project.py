@@ -183,7 +183,7 @@ class Project(object):
 
     def base_context(self):
         return {
-            'env_var': dbt.context.common._env_var
+            'env_var': dbt.context.common.env_var
         }
 
     def context(self):
