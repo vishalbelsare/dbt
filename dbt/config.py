@@ -5,7 +5,7 @@ import dbt.exceptions
 import dbt.clients.yaml_helper
 import dbt.clients.system
 from dbt.contracts.connection import Connection, create_credentials
-from dbt.contracts.project import Project, Configuration
+from dbt.contracts.project import Project, Configuration, PackageList
 from dbt.context.common import env_var
 from dbt import compat
 
@@ -126,7 +126,7 @@ class RuntimeConfig(object):
                  data_paths, test_paths, analysis_paths, docs_paths,
                  target_path, clean_targets, log_path, models, on_run_start,
                  on_run_end, archive, profile_name, send_anonymous_usage_stats,
-                 use_colors, threads, credentials):
+                 use_colors, threads, credentials, packages):
         # 'project'
         self.project_name = project_name
         self.version = version
@@ -149,12 +149,16 @@ class RuntimeConfig(object):
         self.use_colors = use_colors
         self.threads = threads
         self.credentials = credentials
+        # 'package'
+        self.packages = packages
 
     @classmethod
-    def from_project_config(cls, project_dict, args):
+    def from_project_config(cls, args, project_dict, packages_dict=None):
         """Create a RuntimeConfig from a dbt_project.yml file's configuration
         contents and the command-line arguments.
         """
+        if packages_dict is None:
+            packages_dict = {'packages': []}
         # just for validation.
         Project(**project_dict)
 
@@ -182,6 +186,12 @@ class RuntimeConfig(object):
         # it's set via args then that's ok.
         user_cfg, selected_profile, profile_name = _get_profile(args, profile)
 
+        send_anonymous_usage_stats = user_cfg.get(
+            'send_anonymous_usage_stats',
+            DEFAULT_SEND_ANONYMOUS_USAGE_STATS
+        )
+        use_colors = user_cfg.get('use_colors', DEFAULT_USE_COLORS)
+
         # valid connections never include the number of threads, but it's
         # stored on a per-connection level in the raw configs
         threads = selected_profile.pop('threads', DEFAULT_THREADS)
@@ -196,12 +206,7 @@ class RuntimeConfig(object):
                 .format(profile_name))
         typename = selected_profile.pop('type')
         credentials = create_credentials(typename, selected_profile)
-
-        send_anonymous_usage_stats = user_cfg.get(
-            'send_anonymous_usage_stats',
-            DEFAULT_SEND_ANONYMOUS_USAGE_STATS
-        )
-        use_colors = user_cfg.get('use_colors', DEFAULT_USE_COLORS)
+        packages = PackageList(**packages_dict)
 
         return cls(
             project_name=name,
@@ -223,7 +228,8 @@ class RuntimeConfig(object):
             send_anonymous_usage_stats=send_anonymous_usage_stats,
             use_colors=use_colors,
             threads=threads,
-            credentials=credentials
+            credentials=credentials,
+            packages=packages
         )
 
     def to_project_config(self):
@@ -254,7 +260,34 @@ class RuntimeConfig(object):
             'threads': self.threads,
             'credentials': self.credentials.serialize(),
         }))
+        result.update(self.packages.serialize())
         return result
 
     def validate(self):
         Config(**self.serialize())
+
+    @classmethod
+    def from_args(cls, args):
+        """Given arguments, read in dbt_project.yml from the current directory,
+        read in packages.yml if it exists, and use them to find the profile to
+        load.
+        """
+        project_yaml_filepath = os.path.abspath('dbt_project.yml')
+        project_dir = os.path.dirname(project_yaml_filepath)
+        package_filepath = dbt.clients.system.resolve_path_from_base(
+                'packages.yml', project_dir)
+
+        # get the project.yml contents
+        if not dbt.clients.system.path_exists(project_yaml_filepath):
+            raise RuntimeError('no dbt_project.yml (TODO: real error)')
+
+        project_dict = _load_yaml(project_yaml_filepath)
+        packages_dict = {}
+        if dbt.clients.system.path_exists(package_filepath):
+            packages_dict = _load_yaml(package_filepath)
+        return cls.from_project_config(args, project_dict, packages_dict)
+
+
+def _load_yaml(path):
+    contents = dbt.clients.system.load_file_contents(path)
+    return dbt.clients.yaml_helper.load_yaml_text(contents)

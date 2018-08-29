@@ -110,8 +110,108 @@ class Project(APIObject):
     SCHEMA = PROJECT_CONTRACT
 
 
+LOCAL_PACKAGE_CONTRACT = {
+    'type': 'object',
+    'additionalProperties': False,
+    'properties': {
+        'local': {
+            'type': 'string',
+            'description': 'The absolute path to the local package.',
+        },
+        'required': ['local'],
+    },
+}
+
+GIT_PACKAGE_CONTRACT = {
+    'type': 'object',
+    'additionalProperties': False,
+    'properties': {
+        'git': {
+            'type': 'string',
+            'description': (
+                'The URL to the git repository that stores the pacakge'
+            ),
+        },
+        'revision': {
+            'type': 'string',
+            'description': 'The git revision to use, if it is not tip',
+        },
+    },
+    'required': ['git'],
+}
+
+
+REGISTRY_PACKAGE_CONTRACT = {
+    'type': 'object',
+    'additionalProperties': False,
+    'properties': {
+        'package': {
+            'type': 'string',
+            'description': 'The name of the package',
+        },
+        'version': {
+            'type': 'string',
+            'description': 'The version of the package',
+        },
+    },
+    'required': ['package'],
+}
+
+
+class Package(APIObject):
+    SCHEMA = NotImplemented
+
+
+class LocalPackage(Package):
+    SCHEMA = LOCAL_PACKAGE_CONTRACT
+
+
+class GitPackage(Package):
+    SCHEMA = GIT_PACKAGE_CONTRACT
+
+
+class RegistryPackage(Package):
+    SCHEMA = REGISTRY_PACKAGE_CONTRACT
+
+
+PACKAGE_FILE_CONTRACT = {
+    'type': 'object',
+    'additionalProperties': False,
+    'properties': {
+        'packages': {
+            'type': 'array',
+            'items': {
+                'anyOf': [
+                    LOCAL_PACKAGE_CONTRACT,
+                    GIT_PACKAGE_CONTRACT,
+                    REGISTRY_PACKAGE_CONTRACT,
+                ],
+            },
+        },
+    },
+    'required': ['packages'],
+}
+
+
+class PackageList(APIObject):
+    SCHEMA = PACKAGE_FILE_CONTRACT
+    @property
+    def packages(self):
+        return list(self)
+
+    def __iter__(self):
+        for pkg in self._contents['packages']:
+            if 'git' in pkg:
+                yield GitPackage(**pkg)
+            elif 'local' in pkg:
+                yield LocalPackage(**pkg)
+            elif 'package' in pkg:
+                yield RegistryPackage(**pkg)
+
+
 CONFIG_CONTRACT = deep_merge(
     PROJECT_CONTRACT,
+    PACKAGE_FILE_CONTRACT,
     {
         'properties': {
             'send_anonymous_usage_stats': {
