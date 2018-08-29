@@ -140,7 +140,7 @@ def _add_validation(context):
         {'validation': validation_utils})
 
 
-def _env_var(var, default=None):
+def env_var(var, default=None):
     if var in os.environ:
         return os.environ[var]
     elif default is not None:
@@ -371,7 +371,7 @@ def generate_base(model, model_dict, project_cfg, manifest, source_config,
         },
         "column": adapter.Column,
         "config": provider.Config(model_dict, source_config),
-        "env_var": _env_var,
+        "env_var": env_var,
         "exceptions": dbt.exceptions,
         "execute": provider.execute,
         "flags": dbt.flags,

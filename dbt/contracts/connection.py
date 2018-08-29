@@ -236,12 +236,6 @@ class Connection(APIObject):
         self._credentials = create_credentials(self.type,
                                                self._contents['credentials'])
 
-
-    def validate(self):
-        super(Connection, self).validate()
-        # make sure our credentials match our adapter type
-        _ = self.credentials
-
     @property
     def credentials(self):
         return self._credentials

@@ -5,6 +5,9 @@ import dbt.exceptions
 import dbt.clients.yaml_helper
 import dbt.clients.system
 from dbt.contracts.connection import Connection, create_credentials
+from dbt.contracts.project import Project, Configuration
+from dbt.context.common import env_var
+from dbt import compat
 
 from dbt.logger import GLOBAL_LOGGER as logger
 
@@ -53,6 +56,13 @@ DEFAULT_USE_COLORS = True
 DEFAULT_PROFILES_DIR = os.path.join(os.path.expanduser('~'), '.dbt')
 
 
+def _render(value, ctx):
+    if isinstance(value, compat.basestring):
+        return dbt.clients.jinja.get_rendered(value, ctx)
+    else:
+        return value
+
+
 def _get_profile(args, profile_name=None):
     """Given the raw profiles as read from disk, the name of the desired
     profile, and the name of the non-default target to use, if specified,
@@ -64,6 +74,7 @@ def _get_profile(args, profile_name=None):
         raise RuntimeError(
             'Profile name must be set in the project file, or via --project '
             '(TODO: real error)')
+
     profiles_dir = getattr(args, 'profiles_dir', DEFAULT_PROFILES_DIR)
     raw_profiles = read_profile(profiles_dir)
 
@@ -92,8 +103,14 @@ def _get_profile(args, profile_name=None):
 
     cfg = raw_profiles.get('config', {})
 
-    return cfg, profile['outputs'][target], profile_name
+    # if entries are strings, we want to render them so we can get any
+    # environment variables that might store important credentials elements.
+    credentials = {
+        k: _render(v, {'env_var': env_var})
+        for k, v in profile['outputs'][target].items()
+    }
 
+    return cfg, credentials, profile_name
 
 
 class RuntimeConfig(object):
@@ -102,9 +119,8 @@ class RuntimeConfig(object):
     TODO:
         - make credentials/threads optional for some commands (dbt deps should not care)
             - via subclassing/superclassing, probably
-        - make sure this is possible/easy to serialize/deseralize to dicts
-            - should be pretty easy, everything is a native obj or an APIObject
-        - consider splitting project stuff out into its own sub-object
+        - consider splitting project stuff out into its own sub-object?
+            - I'd prefer not to
     """
     def __init__(self, project_name, version, source_paths, macro_paths,
                  data_paths, test_paths, analysis_paths, docs_paths,
@@ -135,37 +151,31 @@ class RuntimeConfig(object):
         self.credentials = credentials
 
     @classmethod
-    def from_args_defaults(self, name, version, args, source_paths=None,
-                           macro_paths=None, data_paths=None, test_paths=None,
-                           analysis_paths=None, docs_paths=None,
-                           target_path='target', clean_targets=None,
-                           log_path='logs', profile=None, models=None,
-                           on_run_start=None, on_run_end=None, archive=None):
-        # first, handle defaults if they exist. Name and version are mandatory
-        # and have no default values. profile is only mandatory if not
-        # specified in the command-line args.
-        if source_paths is None:
-            source_paths = ['models']
-        if macro_paths is None:
-            macro_paths = ['macros']
-        if data_paths is None:
-            data_paths = ['data']
-        if test_paths is None:
-            test_paths = ['test']
-        if analysis_paths is None:
-            analysis_paths = []
-        if docs_paths is None:
-            docs_paths = source_paths[:]
-        if clean_targets is None:
-            clean_targets = [target_path]
-        if models is None:
-            models = {}
-        if on_run_start is None:
-            on_run_start = []
-        if on_run_end is None:
-            on_run_end = []
-        if archive is None:
-            archive = {}
+    def from_project_config(cls, project_dict, args):
+        """Create a RuntimeConfig from a dbt_project.yml file's configuration
+        contents and the command-line arguments.
+        """
+        # just for validation.
+        Project(**project_dict)
+
+        # name/version are required in the Project definition, so we can assume
+        # they are present
+        name = project_dict['name']
+        version = project_dict['version']
+        source_paths = project_dict.get('source-paths', ['models'])
+        macro_paths = project_dict.get('macro-paths', ['macros'])
+        data_paths = project_dict.get('data-paths', ['data'])
+        test_paths = project_dict.get('test-paths', ['test'])
+        analysis_paths = project_dict.get('analysis-paths', [])
+        docs_paths = project_dict.get('docs-paths', source_paths[:]),
+        target_path = project_dict.get('target-path', 'target')
+        clean_targets = project_dict.get('clean-targets', [target_path])
+        profile = project_dict.get('profile')
+        log_path = project_dict.get('log-path', 'logs')
+        models = project_dict.get('models', {})
+        on_run_start = project_dict.get('on-run-start', [])
+        on_run_end = project_dict.get('on-run-end', [])
+        archive = project_dict.get('archive', {})
 
         # now that we have most of the defaults we need, read in the profile
         # based on the given arguments. Note that profile might be None, but if
@@ -180,12 +190,11 @@ class RuntimeConfig(object):
 
         # credentials carry their 'type' in their actual type, not their
         # attributes. We do want this in order to pick our Credentials class.
-        try:
-            typename = selected_profile.pop('type')
-        except KeyError:
+        if 'type' not in selected_profile:
             raise dbt.exceptions.ValidationException(
                 'required field "type" not found in profile {}'
                 .format(profile_name))
+        typename = selected_profile.pop('type')
         credentials = create_credentials(typename, selected_profile)
 
         send_anonymous_usage_stats = user_cfg.get(
@@ -193,6 +202,7 @@ class RuntimeConfig(object):
             DEFAULT_SEND_ANONYMOUS_USAGE_STATS
         )
         use_colors = user_cfg.get('use_colors', DEFAULT_USE_COLORS)
+
         return cls(
             project_name=name,
             version=version,
@@ -213,4 +223,38 @@ class RuntimeConfig(object):
             send_anonymous_usage_stats=send_anonymous_usage_stats,
             use_colors=use_colors,
             threads=threads,
-            credentials=credentials)
+            credentials=credentials
+        )
+
+    def to_project_config(self):
+        return deepcopy({
+            'name': self.project_name,
+            'version': self.version,
+            'source-paths': self.source-paths,
+            'macro-paths': self.macro_paths,
+            'data-paths': self.data_paths,
+            'test-paths': self.test_paths,
+            'analysis_paths': self.analysis-paths,
+            'docs-paths': self.docs_paths,
+            'target-path': self.target_path,
+            'clean-targets': self.clean_targets,
+            'log-path': self.log_path,
+            'models': self.models,
+            'on-run-start': self.on_run_start,
+            'on-run-end': self.on_run_end,
+            'archive': self.archive,
+            'profile': self.profile_name,
+        })
+
+    def serialize(self):
+        result = self.to_project_config()
+        result.update(deepcopy({
+            'send_anonymous_usage_stats': self.send_anonymous_usage_stats,
+            'use_colors': self.use_colors,
+            'threads': self.threads,
+            'credentials': self.credentials.serialize(),
+        }))
+        return result
+
+    def validate(self):
+        Config(**self.serialize())
