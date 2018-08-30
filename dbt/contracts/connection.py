@@ -199,12 +199,25 @@ class Credentials(APIObject):
             'type not implemented for base credentials class'
         )
 
+    def copy(self):
+        return self.replace()
+
+    def replace(self, *args, **kwargs):
+        serialized = self.serialize()
+        serialized.update(*args, **kwargs)
+        return self.__class__(**serialized)
+
 
 class PostgresCredentials(Credentials):
     SCHEMA = POSTGRES_CREDENTIALS_CONTRACT
     @property
     def type(self):
         return 'postgres'
+
+    @property
+    def password(self):
+        # we can't access this as 'pass' since that's reserved
+        return self._contents['pass']
 
 
 class RedshiftCredentials(Credentials):
@@ -247,8 +260,12 @@ def create_credentials(typename, credentials):
 
 class Connection(APIObject):
     SCHEMA = CONNECTION_CONTRACT
-    def __init__(self, *args, **kwargs):
-        super(Connection, self).__init__(*args, **kwargs)
+    def __init__(self, credentials, *args, **kwargs):
+        # this is a bit clunky but we deserialize and then reserialize for now
+        if isinstance(credentials, Credentials):
+            credentials = credentials.serialize()
+        super(Connection, self).__init__(credentials=credentials,
+                                         *args, **kwargs)
         # this will validate itself in its own __init__.
         self._credentials = create_credentials(self.type,
                                                self._contents['credentials'])
@@ -256,3 +273,12 @@ class Connection(APIObject):
     @property
     def credentials(self):
         return self._credentials
+
+    name = named_property('name', 'The name of this connection')
+    handle = named_property('handle', 'The handle to the database connection')
+    state = named_property('state', 'The state of the connection')
+    transaction_open = named_property(
+        'transaction_open',
+        'True if there is an open transaction, False otherwise.'
+    )
+

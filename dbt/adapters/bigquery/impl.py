@@ -79,7 +79,7 @@ class BigQueryAdapter(PostgresAdapter):
 
     @classmethod
     @contextmanager
-    def exception_handler(cls, profile, sql, model_name=None,
+    def exception_handler(cls, config, sql, model_name=None,
                           connection_name='master'):
         try:
             yield
@@ -106,11 +106,11 @@ class BigQueryAdapter(PostgresAdapter):
         return 'CURRENT_TIMESTAMP()'
 
     @classmethod
-    def begin(cls, profile, name='master'):
+    def begin(cls, config, name='master'):
         pass
 
     @classmethod
-    def commit(cls, profile, connection):
+    def commit(cls, config, connection):
         pass
 
     @classmethod
@@ -147,52 +147,45 @@ class BigQueryAdapter(PostgresAdapter):
 
     @classmethod
     def open_connection(cls, connection):
-        if connection.get('state') == 'open':
+        if connection.state == 'open':
             logger.debug('Connection is already open, skipping open.')
             return connection
 
-        result = connection.copy()
-        credentials = connection.get('credentials', {})
-
         try:
-            handle = cls.get_bigquery_client(credentials)
+            handle = cls.get_bigquery_client(connection.credentials)
 
         except google.auth.exceptions.DefaultCredentialsError as e:
             logger.info("Please log into GCP to continue")
             dbt.clients.gcloud.setup_default_credentials()
 
-            handle = cls.get_bigquery_client(credentials)
+            handle = cls.get_bigquery_client(connection.credentials)
 
         except Exception as e:
             raise
             logger.debug("Got an error when attempting to create a bigquery "
                          "client: '{}'".format(e))
 
-            result['handle'] = None
-            result['state'] = 'fail'
+            connection.handle = None
+            connection.state = 'fail'
 
             raise dbt.exceptions.FailedToConnectException(str(e))
 
-        result['handle'] = handle
-        result['state'] = 'open'
-        return result
+        connection.handle = handle
+        connection.state = 'open'
+        return connection
 
     @classmethod
     def close(cls, connection):
-        if dbt.flags.STRICT_MODE:
-            Connection(**connection)
-
-        connection['state'] = 'closed'
+        connection.state = 'closed'
 
         return connection
 
     @classmethod
-    def list_relations(cls, profile, project_cfg, schema, model_name=None):
-        connection = cls.get_connection(profile, model_name)
-        client = connection.get('handle')
+    def list_relations(cls, config, schema, model_name=None):
+        connection = cls.get_connection(config, model_name)
+        client = connection.handle
 
-        bigquery_dataset = cls.get_dataset(
-            profile, project_cfg, schema, model_name)
+        bigquery_dataset = cls.get_dataset(config, schema, model_name)
 
         all_tables = client.list_tables(
             bigquery_dataset,
@@ -543,21 +536,17 @@ class BigQueryAdapter(PostgresAdapter):
         return columns
 
     @classmethod
-    def check_schema_exists(cls, profile, project_cfg,
-                            schema, model_name=None):
-        conn = cls.get_connection(profile, model_name)
-        client = conn.get('handle')
+    def check_schema_exists(cls, config, schema, model_name=None):
+        conn = cls.get_connection(config, model_name)
 
-        with cls.exception_handler(profile, 'get dataset', model_name):
-            all_datasets = client.list_datasets()
+        with cls.exception_handler(config, 'get dataset', model_name):
+            all_datasets = conn.handle.list_datasets()
             return any([ds.dataset_id == schema for ds in all_datasets])
 
     @classmethod
-    def get_dataset(cls, profile, project_cfg, dataset_name, model_name=None):
-        conn = cls.get_connection(profile, model_name)
-        client = conn.get('handle')
-
-        dataset_ref = client.dataset(dataset_name)
+    def get_dataset(cls, config, dataset_name, model_name=None):
+        conn = cls.get_connection(config, model_name)
+        dataset_ref = conn.handle.dataset(dataset_name)
         return google.cloud.bigquery.Dataset(dataset_ref)
 
     @classmethod
@@ -576,18 +565,15 @@ class BigQueryAdapter(PostgresAdapter):
             type=cls.RELATION_TYPES.get(bq_table.table_type))
 
     @classmethod
-    def get_bq_table(cls, profile, project_cfg, dataset_name, identifier,
-                     model_name=None):
-        conn = cls.get_connection(profile, model_name)
-        client = conn.get('handle')
+    def get_bq_table(cls, config, dataset_name, identifier, model_name=None):
+        conn = cls.get_connection(config, model_name)
 
-        dataset = cls.get_dataset(
-            profile, project_cfg, dataset_name, model_name)
+        dataset = cls.get_dataset(config, dataset_name, model_name)
 
         table_ref = dataset.table(identifier)
 
         try:
-            return client.get_table(table_ref)
+            return conn.handle.get_table(table_ref)
         except google.cloud.exceptions.NotFound:
             return None
 
@@ -598,7 +584,7 @@ class BigQueryAdapter(PostgresAdapter):
                                               dbt.ui.printer.COLOR_FG_YELLOW)
 
     @classmethod
-    def add_query(cls, profile, sql, model_name=None, auto_begin=True,
+    def add_query(cls, config, sql, model_name=None, auto_begin=True,
                   bindings=None, abridge_sql_log=False):
         if model_name in ['on-run-start', 'on-run-end']:
             cls.warning_on_hooks(model_name)
@@ -615,17 +601,14 @@ class BigQueryAdapter(PostgresAdapter):
         return '`{}`'.format(identifier)
 
     @classmethod
-    def quote_schema_and_table(cls, profile, project_cfg, schema,
+    def quote_schema_and_table(cls, config, schema,
                                table, model_name=None):
-        return cls.render_relation(profile, project_cfg,
-                                   cls.quote(schema),
-                                   cls.quote(table))
+        return cls.render_relation(config, cls.quote(schema), cls.quote(table))
 
     @classmethod
-    def render_relation(cls, profile, project_cfg, schema, table):
-        connection = cls.get_connection(profile)
-        credentials = connection.get('credentials', {})
-        project = credentials.get('project')
+    def render_relation(cls, config, schema, table):
+        connection = cls.get_connection(config)
+        project = connection.credentials.project
         return '{}.{}.{}'.format(cls.quote(project), schema, table)
 
     @classmethod
@@ -656,14 +639,13 @@ class BigQueryAdapter(PostgresAdapter):
         return bq_schema
 
     @classmethod
-    def load_dataframe(cls, profile, project_cfg, schema,
-                       table_name, agate_table,
+    def load_dataframe(cls, config, schema, table_name, agate_table,
                        column_override, model_name=None):
         bq_schema = cls._agate_to_schema(agate_table, column_override)
-        dataset = cls.get_dataset(profile, project_cfg, schema, None)
+        dataset = cls.get_dataset(config, schema, None)
         table = dataset.table(table_name)
-        conn = cls.get_connection(profile, None)
-        client = conn.get('handle')
+        conn = cls.get_connection(config, None)
+        client = conn.handle
 
         load_config = google.cloud.bigquery.LoadJobConfig()
         load_config.skip_leading_rows = 1
@@ -673,11 +655,11 @@ class BigQueryAdapter(PostgresAdapter):
             job = client.load_table_from_file(f, table, rewind=True,
                                               job_config=load_config)
 
-        with cls.exception_handler(profile, "LOAD TABLE"):
+        with cls.exception_handler(config, "LOAD TABLE"):
             cls.poll_until_job_completes(job, cls.get_timeout(conn))
 
     @classmethod
-    def expand_target_column_types(cls, profile, project_cfg, temp_table,
+    def expand_target_column_types(cls, config, temp_table,
                                    to_schema, to_table, model_name=None):
         # This is a no-op on BigQuery
         pass
@@ -737,9 +719,9 @@ class BigQueryAdapter(PostgresAdapter):
         return zip(column_names, column_values)
 
     @classmethod
-    def get_catalog(cls, profile, project_cfg, manifest):
-        connection = cls.get_connection(profile, 'catalog')
-        client = connection.get('handle')
+    def get_catalog(cls, config, manifest):
+        connection = cls.get_connection(config, 'catalog')
+        client = connection.handle
 
         schemas = {
             node.to_dict()['schema']
@@ -762,7 +744,7 @@ class BigQueryAdapter(PostgresAdapter):
         columns = []
 
         for schema_name in schemas:
-            relations = cls.list_relations(profile, project_cfg, schema_name)
+            relations = cls.list_relations(config, schema_name)
             for relation in relations:
 
                 # This relation contains a subset of the info we care about.
