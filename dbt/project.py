@@ -53,13 +53,13 @@ defined in your profiles.yml file. You can find profiles.yml here:
 
 
 class DbtProjectError(Exception):
-    def __init__(self, message, project):
+    def __init__(self, message, project=None):
         self.project = project
         super(DbtProjectError, self).__init__(message)
 
 
 class DbtProfileError(Exception):
-    def __init__(self, message, project):
+    def __init__(self, message, project=None):
         super(DbtProfileError, self).__init__(message)
 
 

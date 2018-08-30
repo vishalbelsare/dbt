@@ -202,14 +202,6 @@ def invoke_dbt(parsed):
 
     try:
         cfg = config.RuntimeConfig.from_args(parsed)
-        proj = project.read_project(
-            'dbt_project.yml',
-            parsed.profiles_dir,
-            validate=False,
-            profile_to_load=parsed.profile,
-            args=parsed
-        )
-        proj.validate()
     except project.DbtProjectError as e:
         logger.info("Encountered an error while reading the project:")
         logger.info(dbt.compat.to_string(e))
@@ -229,7 +221,7 @@ def invoke_dbt(parsed):
         dbt.tracking.track_invalid_invocation(
             project=proj,
             args=parsed,
-            result_type="invalid_profile")
+            result_type=e.result_type)
 
         return None
     except project.DbtProfileError as e:
@@ -239,7 +231,7 @@ def invoke_dbt(parsed):
         dbt.tracking.track_invalid_invocation(
             project=proj,
             args=parsed,
-            result_type="invalid_profile")
+            result_type=e.result_type)
 
         return None
     except:
@@ -247,26 +239,6 @@ def invoke_dbt(parsed):
         # stack  trace will be lost. Log it (at least for now, in development)
         logger.info(traceback.format_exc())
         raise
-
-    if parsed.target is not None:
-        targets = proj.cfg.get('outputs', {}).keys()
-        if parsed.target in targets:
-            proj.cfg['target'] = parsed.target
-            # make sure we update the target if this is overriden on the cli
-            proj.compile_and_update_target()
-        else:
-            logger.info("Encountered an error while reading the project:")
-            logger.info("  ERROR Specified target {} is not a valid option "
-                        "for profile {}"
-                        .format(parsed.target, proj.profile_to_load))
-            logger.info("Valid targets are: {}".format(
-                ', '.join(targets)))
-            dbt.tracking.track_invalid_invocation(
-                project=proj,
-                args=parsed,
-                result_type="invalid_target")
-
-            return None
 
     flags.NON_DESTRUCTIVE = getattr(proj.args, 'non_destructive', False)
 

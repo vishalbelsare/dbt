@@ -41,6 +41,7 @@ PROJECT_CONTRACT = {
     'properties': {
         'name': {
             'type': 'string',
+            'pattern': r'^[^\d\W]\w*\Z'
         },
         'version': {
             'type': 'string',
@@ -112,7 +113,16 @@ PROJECT_CONTRACT = {
             'type': 'array',
             'items': {'type': 'string'},
         },
-        'archive': ARCHIVE_CONFIG_CONTRACT,
+        'archive': {
+            'anyOf': [
+                ARCHIVE_CONFIG_CONTRACT,
+                {
+                    'type': 'object',
+                    'additionalProperties': False,
+                    'properties': {},
+                },
+            ],
+        },
     },
     'required': ['name', 'version'],
 }
@@ -133,6 +143,7 @@ LOCAL_PACKAGE_CONTRACT = {
         'required': ['local'],
     },
 }
+
 
 GIT_PACKAGE_CONTRACT = {
     'type': 'object',

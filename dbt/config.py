@@ -8,6 +8,8 @@ from dbt.contracts.connection import Connection, create_credentials
 from dbt.contracts.project import Project, Configuration, PackageConfig
 from dbt.context.common import env_var
 from dbt import compat
+from dbt.project import DbtProjectError, DbtProfileError, \
+    NO_SUPPLIED_PROFILE_ERROR
 
 from dbt.logger import GLOBAL_LOGGER as logger
 
@@ -17,6 +19,30 @@ dbt encountered an error while trying to read your profiles.yml file.
 
 {error_string}
 """
+
+NO_SUPPLIED_PROFILE_ERROR = """\
+dbt cannot run because no profile was specified for this dbt project.
+To specify a profile for this project, add a line like the this to
+your dbt_project.yml file:
+
+profile: [profile name]
+
+Here, [profile name] should be replaced with a profile name
+defined in your profiles.yml file. You can find profiles.yml here:
+
+{profiles_file}/profiles.yml
+""".format(profiles_file=default_profiles_dir)
+
+
+class DbtProjectError(Exception):
+    def __init__(self, message, project=None, result_type='invalid_project'):
+        self.project = project
+        super(DbtProjectError, self).__init__(message)
+
+
+class DbtProfileError(Exception):
+    def __init__(self, message, project=None, result_type='invalid_profile'):
+        super(DbtProfileError, self).__init__(message)
 
 
 def read_profile(profiles_dir):
@@ -84,35 +110,38 @@ def _get_profile(args, profile_name=None):
     if args.profile is not None:
         profile_name = args.profile
     if profile_name is None:
-        raise RuntimeError(
-            'Profile name must be set in the project file, or via --project '
-            '(TODO: real error)')
+        raise DbtProjectError(NO_SUPPLIED_PROFILE_ERROR)
 
     profiles_dir = getattr(args, 'profiles_dir', DEFAULT_PROFILES_DIR)
     raw_profiles = read_profile(profiles_dir)
 
     if profile_name not in raw_profiles:
-        raise RuntimeError('{} not in raw_profiles (TODO: real error)'
-                           .format(profile_name))
+        raise DbtProjectError(
+            "Could not find profile named '{}'".format(profile_name)
+        )
 
     profile = raw_profiles[profile_name]
     if 'outputs' not in profile:
-        raise RuntimeError(
-            'outputs not specified in profile {} (TODO: real error)'
-            .format(profile_name))
+        raise DbtProfileError(
+            "outputs not specified in profile '{}'".format(profile_name)
+        )
 
     if args.target is not None:
         target = args.target
     elif 'target' in profile:
         target = profile['target']
     else:
-        raise RuntimeError(
-            'target not specified in profile {} (TODO: real error)'
-            .format(profile_name))
+        raise DbtProfileError(
+            "target not specified in profile '{}'".format(profile_name)
+        )
 
     if target not in profile['outputs']:
-        raise RuntimeError('target {} not in profile {} (TODO: real error)'
-                           .format(target, profile_name))
+        outputs = '\n'.join(' - {}'.format(output)
+                            for output in profile['outputs'])
+        msg = ("The profile '{}' does not have a target named '{}'. The "
+               "valid target names for this profile are:\n{}"
+               .format(profile_name, target_name, outputs))
+        raise DbtProfileError(msg, result_type='invalid_target')
 
     cfg = raw_profiles.get('config', {})
 
@@ -124,6 +153,7 @@ def _get_profile(args, profile_name=None):
     }
 
     return cfg, credentials, profile_name
+
 
 
 class RuntimeConfig(object):
@@ -169,6 +199,7 @@ class RuntimeConfig(object):
         # objects defined in dbt.tasks.deps? Should those things all subclass
         # from the contracts/just be the contracts?
         self.packages = packages
+        self.validate()
 
     @classmethod
     def from_project_config(cls, args, project_dict, packages_dict=None):
@@ -178,7 +209,10 @@ class RuntimeConfig(object):
         if packages_dict is None:
             packages_dict = {'packages': []}
         # just for validation.
-        Project(**project_dict)
+        try:
+            Project(**project_dict)
+        except dbt.exceptions.ValidationException as e:
+            raise DbtProjectError(str(e))
 
         # name/version are required in the Project definition, so we can assume
         # they are present
@@ -189,7 +223,7 @@ class RuntimeConfig(object):
         data_paths = project_dict.get('data-paths', ['data'])
         test_paths = project_dict.get('test-paths', ['test'])
         analysis_paths = project_dict.get('analysis-paths', [])
-        docs_paths = project_dict.get('docs-paths', source_paths[:]),
+        docs_paths = project_dict.get('docs-paths', source_paths[:])
         target_path = project_dict.get('target-path', 'target')
         clean_targets = project_dict.get('clean-targets', [target_path])
         profile = project_dict.get('profile')
@@ -221,16 +255,25 @@ class RuntimeConfig(object):
         # credentials carry their 'type' in their actual type, not their
         # attributes. We do want this in order to pick our Credentials class.
         if 'type' not in selected_profile:
-            raise dbt.exceptions.ValidationException(
+            raise DbtProjectError(
                 'required field "type" not found in profile {}'
                 .format(profile_name))
         typename = selected_profile.pop('type')
-        credentials = create_credentials(typename, selected_profile)
+        try:
+            credentials = create_credentials(typename, selected_profile)
+        except dbt.exceptions.ValidationException as e:
+            raise DbtProfileError(
+                'Credentials in profile "{}" invalid: {}'
+                .format(profile_name, str(e))
+            )
         quoting = deepcopy(
             DEFAULT_QUOTING_ADAPTER.get(typename, DEFAULT_QUOTING_GLOBAL)
         )
         quoting.update(quoting_overrides)
-        packages = PackageConfig(**packages_dict)
+        try:
+            packages = PackageConfig(**packages_dict)
+        except dbt.exceptions.ValidationException as e:
+            raise DbtProfileError('Invalid package config: {}'.format(str(e)))
 
         return cls(
             project_name=name,
@@ -261,11 +304,11 @@ class RuntimeConfig(object):
         return deepcopy({
             'name': self.project_name,
             'version': self.version,
-            'source-paths': self.source-paths,
+            'source-paths': self.source_paths,
             'macro-paths': self.macro_paths,
             'data-paths': self.data_paths,
             'test-paths': self.test_paths,
-            'analysis_paths': self.analysis-paths,
+            'analysis-paths': self.analysis_paths,
             'docs-paths': self.docs_paths,
             'target-path': self.target_path,
             'clean-targets': self.clean_targets,
@@ -290,7 +333,10 @@ class RuntimeConfig(object):
         return result
 
     def validate(self):
-        Config(**self.serialize())
+        try:
+            Configuration(**self.serialize())
+        except dbt.exceptions.ValidationException as e:
+            raise DbtProjectError(str(e))
 
     @classmethod
     def from_args(cls, args):
@@ -305,7 +351,10 @@ class RuntimeConfig(object):
 
         # get the project.yml contents
         if not dbt.clients.system.path_exists(project_yaml_filepath):
-            raise RuntimeError('no dbt_project.yml (TODO: real error)')
+            raise DbtProjectError(
+                'no dbt_project.yml found at expected path {}'
+                .format(project_yaml_filepath)
+            )
 
         project_dict = _load_yaml(project_yaml_filepath)
         packages_dict = {'packages': []}
