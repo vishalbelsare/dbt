@@ -193,22 +193,39 @@ CONNECTION_CONTRACT = {
 class Credentials(APIObject):
     """Common base class for credentials. This is not valid to instantiate"""
     SCHEMA = NotImplemented
+    @property
+    def type(self):
+        raise NotImplementedError(
+            'type not implemented for base credentials class'
+        )
 
 
 class PostgresCredentials(Credentials):
     SCHEMA = POSTGRES_CREDENTIALS_CONTRACT
+    @property
+    def type(self):
+        return 'postgres'
 
 
 class RedshiftCredentials(Credentials):
     SCHEMA = REDSHIFT_CREDENTIALS_CONTRACT
+    @property
+    def type(self):
+        return 'redshift'
 
 
 class SnowflakeCredentials(Credentials):
     SCHEMA = SNOWFLAKE_CREDENTIALS_CONTRACT
+    @property
+    def type(self):
+        return 'snowflake'
 
 
 class BigQueryCredentials(Credentials):
     SCHEMA = BIGQUERY_CREDENTIALS_CONTRACT
+    @property
+    def type(self):
+        return 'bigquery'
 
 
 CREDENTIALS_MAPPING = {

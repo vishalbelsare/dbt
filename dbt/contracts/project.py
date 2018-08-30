@@ -41,7 +41,7 @@ PROJECT_CONTRACT = {
     'properties': {
         'name': {
             'type': 'string',
-            'pattern': r'^[^\d\W]\w*\Z'
+            'pattern': r'^[^\d\W]\w*\Z',
         },
         'version': {
             'type': 'string',
@@ -51,6 +51,9 @@ PROJECT_CONTRACT = {
                 # semver, (allows '1.0'). But it's like 'semver lite'.
                 r'^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(\.(?:0|[1-9]\d*))?$'
             ),
+        },
+        'project-root': {
+            'type': 'string',
         },
         'source-paths': {
             'type': 'array',
@@ -89,6 +92,9 @@ PROJECT_CONTRACT = {
         'log-path': {
             'type': 'string',
         },
+        'modules-path': {
+            'type': 'string',
+        }
         'quoting': {
             'type': 'object',
             'additionalProperties': False,
@@ -237,6 +243,9 @@ CONFIG_CONTRACT = deep_merge(
     PACKAGE_FILE_CONTRACT,
     {
         'properties': {
+            'target_name': {
+                'type': 'string',
+            },
             'send_anonymous_usage_stats': {
                 'type': 'boolean',
             },

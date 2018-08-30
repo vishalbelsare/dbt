@@ -102,7 +102,7 @@ def _render(value, ctx):
         return value
 
 
-def _get_profile(args, profile_name=None):
+def _get_profile_info(args, profile_name=None):
     """Given the raw profiles as read from disk, the name of the desired
     profile, and the name of the non-default target to use, if specified,
     return the global user configuration, the selected profile, and its name.
@@ -152,7 +152,7 @@ def _get_profile(args, profile_name=None):
         for k, v in profile['outputs'][target].items()
     }
 
-    return cfg, credentials, profile_name
+    return cfg, credentials, profile_name, target_name
 
 
 
@@ -165,15 +165,17 @@ class RuntimeConfig(object):
         - consider splitting project stuff out into its own sub-object?
             - I'd prefer not to
     """
-    def __init__(self, project_name, version, source_paths, macro_paths,
-                 data_paths, test_paths, analysis_paths, docs_paths,
-                 target_path, clean_targets, log_path, quoting, models,
-                 on_run_start, on_run_end, archive, profile_name,
+    def __init__(self, project_name, version, project_root, source_paths,
+                 macro_paths, data_paths, test_paths, analysis_paths,
+                 docs_paths, target_path, clean_targets, log_path,
+                 modules_path, quoting, models, on_run_start, on_run_end,
+                 archive, profile_name, target_name,
                  send_anonymous_usage_stats, use_colors, threads, credentials,
                  packages):
         # 'project'
         self.project_name = project_name
         self.version = version
+        self.project_root = project_root
         self.source_paths = source_paths
         self.macro_paths = macro_paths
         self.data_paths = data_paths
@@ -183,6 +185,7 @@ class RuntimeConfig(object):
         self.target_path = target_path
         self.clean_targets = clean_targets
         self.log_path = log_path
+        self.modules_path = modules_path
         self.quoting = quoting
         self.models = models
         self.on_run_start = on_run_start
@@ -190,6 +193,7 @@ class RuntimeConfig(object):
         self.archive = archive
         # 'profile'
         self.profile_name = profile_name
+        self.target_name = target_name
         self.send_anonymous_usage_stats = send_anonymous_usage_stats
         self.use_colors = use_colors
         self.threads = threads
@@ -202,7 +206,8 @@ class RuntimeConfig(object):
         self.validate()
 
     @classmethod
-    def from_project_config(cls, args, project_dict, packages_dict=None):
+    def from_project_config(cls, args, project_root, project_dict,
+                            packages_dict=None):
         """Create a RuntimeConfig from a dbt_project.yml file's configuration
         contents and the command-line arguments.
         """
@@ -228,6 +233,7 @@ class RuntimeConfig(object):
         clean_targets = project_dict.get('clean-targets', [target_path])
         profile = project_dict.get('profile')
         log_path = project_dict.get('log-path', 'logs')
+        modules_path = project_dict.get('modules-path', 'dbt_modules')
         # in the default case we'll populate this once we know the adapter type
         quoting_overrides = project_dict.get('quoting', {})
         models = project_dict.get('models', {})
@@ -238,7 +244,7 @@ class RuntimeConfig(object):
         # now that we have most of the defaults we need, read in the profile
         # based on the given arguments. Note that profile might be None, but if
         # it's set via args then that's ok.
-        user_cfg, selected_profile, profile_name = _get_profile(args, profile)
+        user_cfg, selected_profile, profile_name, target_name = _get_profile_info(args, profile)
 
         send_anonymous_usage_stats = user_cfg.get(
             'send_anonymous_usage_stats',
@@ -278,6 +284,7 @@ class RuntimeConfig(object):
         return cls(
             project_name=name,
             version=version,
+            project_root=project_root,
             source_paths=source_paths,
             macro_paths=macro_paths,
             data_paths=data_paths,
@@ -287,12 +294,14 @@ class RuntimeConfig(object):
             target_path=target_path,
             clean_targets=clean_targets,
             log_path=log_path,
+            modules_path=modules_path,
             quoting=quoting,
             models=models,
             on_run_start=on_run_start,
             on_run_end=on_run_end,
             archive=archive,
             profile_name=profile_name,
+            target_name=target_name,
             send_anonymous_usage_stats=send_anonymous_usage_stats,
             use_colors=use_colors,
             threads=threads,
@@ -319,11 +328,13 @@ class RuntimeConfig(object):
             'on-run-end': self.on_run_end,
             'archive': self.archive,
             'profile': self.profile_name,
+            'project-root': self.project_root,
         })
 
     def serialize(self):
         result = self.to_project_config()
         result.update(deepcopy({
+            'target_name': self.target_name,
             'send_anonymous_usage_stats': self.send_anonymous_usage_stats,
             'use_colors': self.use_colors,
             'threads': self.threads,
@@ -360,7 +371,11 @@ class RuntimeConfig(object):
         packages_dict = {'packages': []}
         if dbt.clients.system.path_exists(package_filepath):
             packages_dict = _load_yaml(package_filepath)
-        return cls.from_project_config(args, project_dict, packages_dict)
+        return cls.from_project_config(args, project_dir, project_dict,
+                                       packages_dict)
+
+    def hashed_name(self):
+        return hashlib.md5(self.project_name.encode('utf-8')).hexdigest()
 
 
 def _load_yaml(path):

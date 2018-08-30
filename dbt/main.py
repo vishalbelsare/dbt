@@ -219,7 +219,7 @@ def invoke_dbt(parsed):
         logger.info(PROFILES_HELP_MESSAGE)
 
         dbt.tracking.track_invalid_invocation(
-            project=proj,
+            config=cfg,
             args=parsed,
             result_type=e.result_type)
 
@@ -229,7 +229,7 @@ def invoke_dbt(parsed):
         logger.info("  ERROR {}".format(str(e)))
 
         dbt.tracking.track_invalid_invocation(
-            project=proj,
+            config=cfg,
             args=parsed,
             result_type=e.result_type)
 
@@ -240,10 +240,10 @@ def invoke_dbt(parsed):
         logger.info(traceback.format_exc())
         raise
 
-    flags.NON_DESTRUCTIVE = getattr(proj.args, 'non_destructive', False)
+    flags.NON_DESTRUCTIVE = getattr(parsed, 'non_destructive', False)
 
-    arg_drop_existing = getattr(proj.args, 'drop_existing', False)
-    arg_full_refresh = getattr(proj.args, 'full_refresh', False)
+    arg_drop_existing = getattr(parsed, 'drop_existing', False)
+    arg_full_refresh = getattr(parsed, 'full_refresh', False)
 
     if arg_drop_existing:
         dbt.deprecations.warn('drop-existing')
@@ -253,7 +253,7 @@ def invoke_dbt(parsed):
 
     logger.debug("running dbt with arguments %s", parsed)
 
-    task = parsed.cls(args=parsed, project=proj)
+    task = parsed.cls(args=parsed, config=cfg)
 
     return task, proj
 
