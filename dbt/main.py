@@ -1,4 +1,5 @@
-from dbt.logger import initialize_logger, GLOBAL_LOGGER as logger
+from dbt.logger import initialize_logger, GLOBAL_LOGGER as logger, \
+    initialized as logger_initialized
 
 import argparse
 import os.path
@@ -27,6 +28,8 @@ import dbt.compat
 import dbt.deprecations
 
 from dbt.utils import ExitCodes
+
+
 
 PROFILES_HELP_MESSAGE = """
 For more information on configuring profiles, please consult the dbt docs:
@@ -87,7 +90,10 @@ def main(args=None):
         logger.info("Encountered an error:")
         logger.info(str(e))
 
-        logger.debug(traceback.format_exc())
+        if logger_initialized:
+            logger.debug(traceback.format_exc())
+        else:
+            logger.error(traceback.format_exc())
         exit_code = ExitCodes.UnhandledError
 
     sys.exit(exit_code)
@@ -138,7 +144,7 @@ def get_nearest_project_dir():
 
 def run_from_args(parsed):
     task = None
-    proj = None
+    config = None
 
     if parsed.which == 'init':
         # bypass looking for a project file if we're running `dbt init`
@@ -157,39 +163,39 @@ def run_from_args(parsed):
         if res is None:
             raise RuntimeError("Could not run dbt")
         else:
-            task, proj = res
+            task, config = res
 
     log_path = None
 
-    if proj is not None:
-        log_path = proj.get('log-path', 'logs')
+    if config is not None:
+        log_path = config.get('log-path', 'logs')
 
     initialize_logger(parsed.debug, log_path)
     logger.debug("Tracking: {}".format(dbt.tracking.active_user.state()))
 
-    dbt.tracking.track_invocation_start(project=proj, args=parsed)
+    dbt.tracking.track_invocation_start(config=config, args=parsed)
 
-    results = run_from_task(task, proj, parsed)
+    results = run_from_task(task, config, parsed)
 
     return task, results
 
 
-def run_from_task(task, proj, parsed_args):
+def run_from_task(task, config, parsed_args):
     result = None
     try:
         result = task.run()
         dbt.tracking.track_invocation_end(
-            project=proj, args=parsed_args, result_type="ok"
+            config=config, args=parsed_args, result_type="ok"
         )
     except (dbt.exceptions.NotImplementedException,
             dbt.exceptions.FailedToConnectException) as e:
         logger.info('ERROR: {}'.format(e))
         dbt.tracking.track_invocation_end(
-            project=proj, args=parsed_args, result_type="error"
+            config=config, args=parsed_args, result_type="error"
         )
     except Exception as e:
         dbt.tracking.track_invocation_end(
-            project=proj, args=parsed_args, result_type="error"
+            config=config, args=parsed_args, result_type="error"
         )
         raise
 
@@ -234,11 +240,6 @@ def invoke_dbt(parsed):
             result_type=e.result_type)
 
         return None
-    except:
-        # if we fail here, the logger has not yet been fully set up and the
-        # stack  trace will be lost. Log it (at least for now, in development)
-        logger.info(traceback.format_exc())
-        raise
 
     flags.NON_DESTRUCTIVE = getattr(parsed, 'non_destructive', False)
 

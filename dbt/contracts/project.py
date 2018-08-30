@@ -94,7 +94,7 @@ PROJECT_CONTRACT = {
         },
         'modules-path': {
             'type': 'string',
-        }
+        },
         'quoting': {
             'type': 'object',
             'additionalProperties': False,

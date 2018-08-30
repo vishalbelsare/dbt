@@ -176,7 +176,7 @@ class RedshiftAdapter(PostgresAdapter):
 
         to_return = None
 
-        with drop_lock
+        with drop_lock:
 
             connection = cls.get_connection(config, model_name)
 

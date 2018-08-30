@@ -26,9 +26,8 @@ RESULT_FILE_NAME = 'run_results.json'
 
 
 class RunManager(object):
-    def __init__(self, config, args):
+    def __init__(self, config):
         self.config = config
-        self.args = args
 
     def deserialize_graph(self):
         logger.info("Loading dependency graph file.")

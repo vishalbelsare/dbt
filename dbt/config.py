@@ -14,6 +14,24 @@ from dbt.project import DbtProjectError, DbtProfileError, \
 from dbt.logger import GLOBAL_LOGGER as logger
 
 
+DEFAULT_THREADS = 1
+DEFAULT_SEND_ANONYMOUS_USAGE_STATS = True
+DEFAULT_USE_COLORS = True
+DEFAULT_QUOTING_GLOBAL = {
+    'identifier': True,
+    'schema': True,
+}
+# some adapters need different quoting rules, for example snowflake gets a bit
+# weird with quoting on
+DEFAULT_QUOTING_ADAPTER = {
+    'snowflake': {
+        'identifier': False,
+        'schema': False,
+    },
+}
+DEFAULT_PROFILES_DIR = os.path.join(os.path.expanduser('~'), '.dbt')
+
+
 INVALID_PROFILE_MESSAGE = """
 dbt encountered an error while trying to read your profiles.yml file.
 
@@ -31,7 +49,7 @@ Here, [profile name] should be replaced with a profile name
 defined in your profiles.yml file. You can find profiles.yml here:
 
 {profiles_file}/profiles.yml
-""".format(profiles_file=default_profiles_dir)
+""".format(profiles_file=DEFAULT_PROFILES_DIR)
 
 
 class DbtProjectError(Exception):
@@ -74,25 +92,6 @@ def send_anonymous_usage_stats(config):
 
 def colorize_output(config):
     return config.get('use_colors', True)
-
-
-DEFAULT_THREADS = 1
-DEFAULT_SEND_ANONYMOUS_USAGE_STATS = True
-DEFAULT_USE_COLORS = True
-DEFAULT_QUOTING_GLOBAL = {
-    'identifier': True,
-    'schema': True,
-}
-# some adapters need different quoting rules, for example snowflake gets a bit
-# weird with quoting on
-DEFAULT_QUOTING_ADAPTER = {
-    'snowflake': {
-        'identifier': False,
-        'schema': False,
-    },
-}
-
-DEFAULT_PROFILES_DIR = os.path.join(os.path.expanduser('~'), '.dbt')
 
 
 def _render(value, ctx):
@@ -152,7 +151,7 @@ def _get_profile_info(args, profile_name=None):
         for k, v in profile['outputs'][target].items()
     }
 
-    return cfg, credentials, profile_name, target_name
+    return cfg, credentials, profile_name, target
 
 
 
