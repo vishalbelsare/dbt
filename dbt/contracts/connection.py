@@ -200,14 +200,6 @@ class Credentials(APIObject):
             'type not implemented for base credentials class'
         )
 
-    def copy(self):
-        return self.replace()
-
-    def replace(self, *args, **kwargs):
-        serialized = self.serialize()
-        serialized.update(*args, **kwargs)
-        return self.__class__(**serialized)
-
 
 class PostgresCredentials(Credentials):
     SCHEMA = POSTGRES_CREDENTIALS_CONTRACT

@@ -226,6 +226,7 @@ class PackageConfig(APIObject):
     SCHEMA = PACKAGE_FILE_CONTRACT
 
 
+
 CONFIG_CONTRACT = deep_merge(
     PROJECT_CONTRACT,
     PACKAGE_FILE_CONTRACT,

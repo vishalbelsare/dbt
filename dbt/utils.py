@@ -168,16 +168,16 @@ def get_docs_macro_name(docs_name, with_prefix=True):
         return docs_name
 
 
-def load_project_with_profile(source_project, project_dir):
+def load_project_with_profile(config, project_dir):
     project_filepath = os.path.join(project_dir, 'dbt_project.yml')
     return dbt.project.read_project(
         project_filepath,
-        source_project.profiles_dir,
-        profile_to_load=source_project.profile_to_load,
-        args=source_project.args)
+        config.args.profiles_dir,
+        profile_to_load=config.profile_to_load,
+        args=config.args)
 
 
-def dependencies_for_path(project, module_path):
+def dependencies_for_path(config, module_path):
     """Given a module path, yield all dependencies in that path."""
     import dbt.project
     logger.debug("Loading dependency project from {}".format(module_path))
