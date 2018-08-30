@@ -5,7 +5,8 @@ import dbt.exceptions
 import dbt.clients.yaml_helper
 import dbt.clients.system
 from dbt.contracts.connection import Connection, create_credentials
-from dbt.contracts.project import Project, Configuration, PackageConfig
+from dbt.contracts.project import Project as ProjectContract, Configuration, \
+    PackageConfig
 from dbt.context.common import env_var
 from dbt import compat
 from dbt.project import DbtProjectError, DbtProfileError, \
@@ -102,14 +103,15 @@ def _render(value, ctx):
 
 
 class Project(object):
-    def __init__(self, project_name, version, project_root, source_paths,
-                 macro_paths, data_paths, test_paths, analysis_paths,
-                 docs_paths, target_path, clean_targets, log_path,
-                 modules_path, quoting, models, on_run_start, on_run_end,
-                 archive):
+    def __init__(self, project_name, version, project_root, profile_name,
+                 source_paths, macro_paths, data_paths, test_paths,
+                 analysis_paths, docs_paths, target_path, clean_targets,
+                 log_path, modules_path, quoting, models, on_run_start,
+                 on_run_end, archive):
         self.project_name = project_name
         self.version = version
         self.project_root = project_root
+        self.profile_name = profile_name
         self.source_paths = source_paths
         self.macro_paths = macro_paths
         self.data_paths = data_paths
@@ -130,7 +132,7 @@ class Project(object):
     def from_project_config(cls, project_dict):
         # just for validation.
         try:
-            Project(**project_dict)
+            ProjectContract(**project_dict)
         except dbt.exceptions.ValidationException as e:
             raise DbtProjectError(str(e))
 
@@ -138,6 +140,13 @@ class Project(object):
         # they are present
         name = project_dict['name']
         version = project_dict['version']
+        # this is added at project_dict parse time and should always be here
+        # once we see it.
+        project_root = project_dict['project-root']
+        # this is only optional in the sense that if it's not present, it needs
+        # to have been a cli argument.
+        profile_name = project_dict.get('profile')
+        # these are optional
         source_paths = project_dict.get('source-paths', ['models'])
         macro_paths = project_dict.get('macro-paths', ['macros'])
         data_paths = project_dict.get('data-paths', ['data'])
@@ -160,6 +169,7 @@ class Project(object):
             project_name=name,
             version=version,
             project_root=project_root,
+            profile_name=profile_name,
             source_paths=source_paths,
             macro_paths=macro_paths,
             data_paths=data_paths,
@@ -181,6 +191,8 @@ class Project(object):
         return deepcopy({
             'name': self.project_name,
             'version': self.version,
+            'project-root': self.project_root,
+            'profile': self.profile_name,
             'source-paths': self.source_paths,
             'macro-paths': self.macro_paths,
             'data-paths': self.data_paths,
@@ -195,8 +207,6 @@ class Project(object):
             'on-run-start': self.on_run_start,
             'on-run-end': self.on_run_end,
             'archive': self.archive,
-            'profile': self.profile_name,
-            'project-root': self.project_root,
         })
 
     @classmethod
@@ -235,7 +245,7 @@ class Profile(object):
         """
         return {
             'profile_name': self.profile_name,
-            'target': self.target,
+            'target_name': self.target_name,
             'send_anonymous_usage_stats': self.send_anonymous_usage_stats,
             'use_colors': self.use_colors,
             'threads': self.threads,
@@ -389,16 +399,35 @@ class RuntimeConfig(Project, Profile):
         # 'project'
         Project.__init__(
             self,
-            project_name, version, project_root, source_paths, macro_paths,
-            data_paths, test_paths, analysis_paths, docs_paths, target_path,
-            clean_targets, log_path, modules_path, quoting, models,
-            on_run_start, on_run_end, archive
+            project_name=project_name,
+            version=version,
+            project_root=project_root,
+            profile_name=profile_name,
+            source_paths=source_paths,
+            macro_paths=macro_paths,
+            data_paths=data_paths,
+            test_paths=test_paths,
+            analysis_paths=analysis_paths,
+            docs_paths=docs_paths,
+            target_path=target_path,
+            clean_targets=clean_targets,
+            log_path=log_path,
+            modules_path=modules_path,
+            quoting=quoting,
+            models=models,
+            on_run_start=on_run_start,
+            on_run_end=on_run_end,
+            archive=archive
         )
         # 'profile'
         Profile.__init__(
             self,
-            profile_name, target_name, send_anonymous_usage_stats, use_colors,
-            threads, credentials
+            profile_name=profile_name,
+            target_name=target_name,
+            send_anonymous_usage_stats=send_anonymous_usage_stats,
+            use_colors=use_colors,
+            threads=threads,
+            credentials=credentials
         )
         # 'package'
         self.packages = packages
@@ -407,7 +436,7 @@ class RuntimeConfig(Project, Profile):
     @classmethod
     def from_parts(cls, project, profile, packages):
         quoting = deepcopy(
-            DEFAULT_QUOTING_ADAPTER.get(profile.credentials.type(),
+            DEFAULT_QUOTING_ADAPTER.get(profile.credentials.type,
                                         DEFAULT_QUOTING_GLOBAL)
         )
         quoting.update(project.quoting)
@@ -475,6 +504,8 @@ class RuntimeConfig(Project, Profile):
         result = self.to_project_config()
         result.update(self.to_profile_info())
         result.update(self.packages.serialize())
+        # override credentials with serialized form
+        result['credentials'] = self.credentials.serialize()
         return result
 
     def validate(self):
@@ -497,7 +528,7 @@ class RuntimeConfig(Project, Profile):
         packages = package_config_from_root(project_dir)
 
         # build the profile
-        profile = Profile.from_args(args, project.profile)
+        profile = Profile.from_args(args, project.profile_name)
 
         return cls.from_parts(project=project, profile=profile, packages=packages)
 

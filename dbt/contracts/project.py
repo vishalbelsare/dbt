@@ -232,6 +232,9 @@ CONFIG_CONTRACT = deep_merge(
     PACKAGE_FILE_CONTRACT,
     {
         'properties': {
+            'profile_name': {
+                'type': 'string',
+            },
             'target_name': {
                 'type': 'string',
             },
