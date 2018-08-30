@@ -44,13 +44,22 @@ PROJECT_CONTRACT = {
             'pattern': r'^[^\d\W]\w*\Z',
         },
         'version': {
-            'type': 'string',
-            'pattern': (
-                # this does not support the full semver (does not allow a
-                # trailing -fooXYZ) and is not restrictive enough for full
-                # semver, (allows '1.0'). But it's like 'semver lite'.
-                r'^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(\.(?:0|[1-9]\d*))?$'
-            ),
+            'anyOf': [
+                {
+                    'type': 'string',
+                    'pattern': (
+                        # this does not support the full semver (does not allow a
+                        # trailing -fooXYZ) and is not restrictive enough for full
+                        # semver, (allows '1.0'). But it's like 'semver lite'.
+                        r'^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(\.(?:0|[1-9]\d*))?$'
+                    ),
+                },
+                {
+                    # the internal global_project/dbt_project.yml is actually
+                    # 1.0. Heaven only knows how many users have done the same
+                    'type': 'number',
+                },
+            ],
         },
         'project-root': {
             'type': 'string',
