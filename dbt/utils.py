@@ -201,14 +201,14 @@ def dependencies_for_path(project, module_path):
             logger.info(str(e))
 
 
-def dependency_projects(project):
+def dependency_projects(config):
     module_paths = [
         GLOBAL_DBT_MODULES_PATH,
-        os.path.join(project['project-root'], project['modules-path'])
+        os.path.join(config.project_root, config.modules_path)
     ]
 
     for module_path in module_paths:
-        for entry in dependencies_for_path(project, module_path):
+        for entry in dependencies_for_path(config, module_path):
             yield entry
 
 
