@@ -199,9 +199,9 @@ class Compiler(object):
         all_projects = {self.config.project_name: self.config}
         dependency_projects = dbt.utils.dependency_projects(self.config)
 
-        for project in dependency_projects:
-            name = project.cfg.get('name', 'unknown')
-            all_projects[name] = project.cfg
+        for project_cfg in dependency_projects:
+            name = project_cfg.project_name
+            all_projects[name] = project_cfg
 
         if dbt.flags.STRICT_MODE:
             dbt.contracts.project.ProjectList(**all_projects)
