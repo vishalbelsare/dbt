@@ -224,18 +224,6 @@ PACKAGE_FILE_CONTRACT = {
 
 class PackageConfig(APIObject):
     SCHEMA = PACKAGE_FILE_CONTRACT
-    @property
-    def packages(self):
-        return list(self)
-
-    def __iter__(self):
-        for pkg in self._contents['packages']:
-            if 'git' in pkg:
-                yield GitPackage(**pkg)
-            elif 'local' in pkg:
-                yield LocalPackage(**pkg)
-            elif 'package' in pkg:
-                yield RegistryPackage(**pkg)
 
 
 CONFIG_CONTRACT = deep_merge(

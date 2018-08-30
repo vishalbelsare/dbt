@@ -16,16 +16,24 @@ from dbt.compat import basestring
 from dbt.logger import GLOBAL_LOGGER as logger
 from dbt.semver import VersionSpecifier, UnboundedVersionSpecifier
 from dbt.utils import AttrDict
+from dbt.api.object import APIObject
+from dbt.contracts.project import LOCAL_PACKAGE_CONTRACT, \
+    GIT_PACKAGE_CONTRACT, REGISTRY_PACKAGE_CONTRACT
 
 from dbt.task.base_task import BaseTask
 
 DOWNLOADS_PATH = os.path.join(tempfile.gettempdir(), "dbt-downloads")
 
 
-class Package(object):
-    def __init__(self, name):
-        self.name = name
+class Package(APIObject):
+    SCHEMA = NotImplemented
+    def __init__(self, *args, **kwargs):
+        super(Package, self).__init__(*args, **kwargs)
         self._cached_metadata = None
+
+    @property
+    def name(self):
+        raise NotImplementedError
 
     def __str__(self):
         version = getattr(self, 'version', None)
@@ -85,10 +93,14 @@ class Package(object):
 
 
 class RegistryPackage(Package):
-    def __init__(self, package, version):
-        super(RegistryPackage, self).__init__(package)
-        self.package = package
-        self._version = self._sanitize_version(version)
+    SCHEMA = REGISTRY_PACKAGE_CONTRACT
+    def __init__(self, *args, **kwargs):
+        super(RegistryPackage, self).__init__(*args, **kwargs)
+        self._version = self._sanitize_version(self._contents['version'])
+
+    @property
+    def name(self):
+        return self.package
 
     @classmethod
     def _sanitize_version(cls, version):
@@ -163,11 +175,15 @@ class RegistryPackage(Package):
 
 
 class GitPackage(Package):
-    def __init__(self, git, version):
-        super(GitPackage, self).__init__(git)
-        self.git = git
-        self._checkout_name = hashlib.md5(six.b(git)).hexdigest()
-        self._version = self._sanitize_version(version)
+    SCHEMA = GIT_PACKAGE_CONTRACT
+    def __init__(self, *args, **kwargs):
+        super(GitPackage, self).__init__(*args, **kwargs)
+        self._checkout_name = hashlib.md5(six.b(self.git)).hexdigest()
+        self._version = self._sanitize_version(self._contents['version'])
+
+    @property
+    def name(self):
+        return self.git
 
     @classmethod
     def _sanitize_version(cls, version):
@@ -191,7 +207,7 @@ class GitPackage(Package):
         return "revision {}".format(self.version_name())
 
     def incorporate(self, other):
-        return GitPackage(self.git, self.version + other.version)
+        return GitPackage(git=self.git, version=(self.version + other.version))
 
     def _resolve_version(self):
         requested = set(self.version)
@@ -229,9 +245,10 @@ class GitPackage(Package):
 
 
 class LocalPackage(Package):
-    def __init__(self, local):
-        super(LocalPackage, self).__init__(local)
-        self.local = local
+    SCHEMA = LOCAL_PACKAGE_CONTRACT
+    @property
+    def name(self):
+        return self.local
 
     def incorporate(self, _):
         return LocalPackage(self.local)
@@ -286,15 +303,16 @@ def _parse_package(dict_):
             'yours has {} of them - {}'
             .format(only_1_keys, len(specified), specified))
     if dict_.get('package'):
-        return RegistryPackage(dict_['package'], dict_.get('version'))
+        return RegistryPackage(package=dict_['package'],
+                               version=dict_.get('version'))
     if dict_.get('git'):
         if dict_.get('version'):
             msg = ("Keyword 'version' specified for git package {}.\nDid "
                    "you mean 'revision'?".format(dict_.get('git')))
             dbt.exceptions.raise_dependency_error(msg)
-        return GitPackage(dict_['git'], dict_.get('revision'))
+        return GitPackage(git=dict_['git'], version=dict_.get('revision'))
     if dict_.get('local'):
-        return LocalPackage(dict_['local'])
+        return LocalPackage(local=dict_['local'])
     dbt.exceptions.raise_dependency_error(
         'Malformed package definition. Must contain package, git, or local.')
 
@@ -399,7 +417,7 @@ class DepsTask(BaseTask):
         dbt.clients.system.make_directory(self.config.modules_path)
         dbt.clients.system.make_directory(DOWNLOADS_PATH)
 
-        packages = _read_packages(self.project)
+        packages = [p.serialize() for p in self.config.packages]
         if not packages:
             logger.info('Warning: No packages were found in packages.yml')
             return
