@@ -25,8 +25,8 @@ class DebugTask(BaseTask):
 
     def diag(self):
         logger.info("args: {}".format(self.args))
-        logger.info("project: ")
-        pprint.pprint(self.project)
+        logger.info("config: ")
+        pprint.pprint(self.config)
 
     def run(self):
 

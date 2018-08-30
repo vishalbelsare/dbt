@@ -376,13 +376,12 @@ class DepsTask(BaseTask):
     def _check_for_duplicate_project_names(self, final_deps):
         seen = set()
         for _, package in final_deps.items():
-            project_name = package.get_project_name(self.project)
-            if project_name in seen:
+            if self.config.project_name in seen:
                 dbt.exceptions.raise_dependency_error(
                     'Found duplicate project {}. This occurs when a dependency'
                     ' has the same project name as some other dependency.'
-                    .format(project_name))
-            seen.add(project_name)
+                    .format(self.config.project_name))
+            seen.add(self.config.project_name)
 
     def track_package_install(self, package_name, source_type, version):
         version = 'local' if source_type == 'local' else version
@@ -397,7 +396,7 @@ class DepsTask(BaseTask):
         })
 
     def run(self):
-        dbt.clients.system.make_directory(self.project['modules-path'])
+        dbt.clients.system.make_directory(self.config.modules_path)
         dbt.clients.system.make_directory(DOWNLOADS_PATH)
 
         packages = _read_packages(self.project)
