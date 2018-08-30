@@ -199,6 +199,24 @@ class Project(object):
             'project-root': self.project_root,
         })
 
+    @classmethod
+    def from_project_root(cls, project_root):
+        project_yaml_filepath = os.path.join(project_root, 'dbt_project.yml')
+
+        # get the project.yml contents
+        if not dbt.clients.system.path_exists(project_yaml_filepath):
+            raise DbtProjectError(
+                'no dbt_project.yml found at expected path {}'
+                .format(project_yaml_filepath)
+            )
+
+        project_dict = _load_yaml(project_yaml_filepath)
+        project_dict['project-root'] = project_root
+        return cls.from_project_config(project_dict)
+
+    def hashed_name(self):
+        return hashlib.md5(self.project_name.encode('utf-8')).hexdigest()
+
 
 class Profile(object):
     def __init__(self, profile_name, target_name, send_anonymous_usage_stats,
@@ -337,6 +355,23 @@ class Profile(object):
         )
 
 
+def package_config_from_root(project_root):
+    package_filepath = dbt.clients.system.resolve_path_from_base(
+        'packages.yml', project_root
+    )
+
+    if dbt.clients.system.path_exists(package_filepath):
+        packages_dict = _load_yaml(package_filepath)
+    else:
+        packages_dict = {'packages': []}
+
+    try:
+        packages = PackageConfig(**packages_dict)
+    except dbt.exceptions.ValidationException as e:
+        raise DbtProfileError('Invalid package config: {}'.format(str(e)))
+    return packages
+
+
 class RuntimeConfig(Project, Profile):
     """The runtime configuration, as constructed from its components. There's a
     lot because there is a lot of stuff!
@@ -370,17 +405,14 @@ class RuntimeConfig(Project, Profile):
         self.validate()
 
     @classmethod
-    def from_project_config_and_profile_info(cls, project_dict, profile_info, packages):
-        project = Project.from_project_config(project_dict)
-
+    def from_parts(cls, project, profile, packages):
         quoting = deepcopy(
-            DEFAULT_QUOTING_ADAPTER.get(profile_info['credentials'].type(),
+            DEFAULT_QUOTING_ADAPTER.get(profile.credentials.type(),
                                         DEFAULT_QUOTING_GLOBAL)
         )
         quoting.update(project.quoting)
-
         return cls(
-            project_name=project.name,
+            project_name=project.project_name,
             version=project.version,
             project_root=project.project_root,
             source_paths=project.source_paths,
@@ -399,11 +431,16 @@ class RuntimeConfig(Project, Profile):
             on_run_end=project.on_run_end,
             archive=project.archive,
             packages=packages,
-            **profile_info
+            profile_name=profile.profile_name,
+            target_name=profile.target_name,
+            send_anonymous_usage_stats=profile.send_anonymous_usage_stats,
+            use_colors=profile.use_colors,
+            threads=profile.threads,
+            credentials=profile.credentials
         )
 
     @classmethod
-    def from_project_config(cls, args, project_dict, packages_dict=None):
+    def from_project(cls, args, project, packages_dict=None):
         """Create a RuntimeConfig from a dbt_project.yml file's configuration
         contents and the command-line arguments.
         """
@@ -411,26 +448,28 @@ class RuntimeConfig(Project, Profile):
             packages_dict = {'packages': []}
         # the only thing we need from the profile info for this is the profile
         # field, which may be empty.
-        profile_info = Profile.from_args(args, project_dict.get('profile'))
-        try:
-            packages = PackageConfig(**packages_dict)
-        except dbt.exceptions.ValidationException as e:
-            raise DbtProfileError('Invalid package config: {}'.format(str(e)))
+        profile = Profile.from_args(args, project_dict.get('profile'))
 
-        return cls.from_project_config_and_profile_info(
-            project_dict=project_dict,
-            packages=packages,
-            # profile data
-            profile_info=profile_info,
+        return cls.from_parts(
+            project=project,
+            profile=profile,
+            packages=packages
         )
 
     def new_project(self, project_root):
         """Given a new project root, read in its project dictionary, supply the
         existing project's profile info, and create a new project file.
         """
+        # copy packages and profile
         packages = self.packages.incorporate()
-        profile_info = self.to_profile_info()
-        raise NotImplementedError
+        profile = Profile(**self.to_profile_info())
+        # load the new project
+        project = Project.from_project_root(project_root)
+        return self.from_parts(
+            project=project,
+            profile=profile,
+            packages=packages
+        )
 
     def serialize(self):
         result = self.to_project_config()
@@ -450,27 +489,17 @@ class RuntimeConfig(Project, Profile):
         read in packages.yml if it exists, and use them to find the profile to
         load.
         """
-        project_yaml_filepath = os.path.abspath('dbt_project.yml')
-        project_dir = os.path.dirname(project_yaml_filepath)
-        package_filepath = dbt.clients.system.resolve_path_from_base(
-                'packages.yml', project_dir)
+        # build the project
+        project_dir = os.path.dirname(os.path.abspath('dbt_project.yml'))
+        project = Project.from_project_root(project_dir)
 
-        # get the project.yml contents
-        if not dbt.clients.system.path_exists(project_yaml_filepath):
-            raise DbtProjectError(
-                'no dbt_project.yml found at expected path {}'
-                .format(project_yaml_filepath)
-            )
+        # build the PackageConfig
+        packages = package_config_from_root(project_dir)
 
-        project_dict = _load_yaml(project_yaml_filepath)
-        packages_dict = {'packages': []}
-        if dbt.clients.system.path_exists(package_filepath):
-            packages_dict = _load_yaml(package_filepath)
-        return cls.from_project_config(args, project_dir, project_dict,
-                                       packages_dict)
+        # build the profile
+        profile = Profile.from_args(args, project.profile)
 
-    def hashed_name(self):
-        return hashlib.md5(self.project_name.encode('utf-8')).hexdigest()
+        return cls.from_parts(project=project, profile=profile, packages=packages)
 
 
 def _load_yaml(path):
