@@ -170,9 +170,11 @@ CONNECTION_CONTRACT = {
         'transaction_open': {
             'type': 'boolean',
         },
-        'handle': {
-            'type': ['null', 'object'],
-        },
+        # we can't serialize this so we can't require it as part of the
+        # contract.
+        # 'handle': {
+        #     'type': ['null', 'object'],
+        # },
         'credentials': {
             'description': (
                 'The credentials object here should match the connection type.'
@@ -186,7 +188,7 @@ CONNECTION_CONTRACT = {
         }
     },
     'required': [
-        'type', 'name', 'state', 'transaction_open', 'handle', 'credentials'
+        'type', 'name', 'state', 'transaction_open', 'credentials'
     ],
 }
 
@@ -207,18 +209,26 @@ class PostgresCredentials(Credentials):
     def type(self):
         return 'postgres'
 
+    def incorporate(self, **kwargs):
+        if 'password' in kwargs:
+            kwargs['pass'] = kwargs.pop('password')
+        return super(PostgresCredentials, self).incorporate(**kwargs)
+
     @property
     def password(self):
         # we can't access this as 'pass' since that's reserved
         return self._contents['pass']
 
 
-class RedshiftCredentials(Credentials):
+class RedshiftCredentials(PostgresCredentials):
     SCHEMA = REDSHIFT_CREDENTIALS_CONTRACT
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('method', 'database')
+        super(RedshiftCredentials, self).__init__(*args, **kwargs)
+
     @property
     def type(self):
         return 'redshift'
-
 
 class SnowflakeCredentials(Credentials):
     SCHEMA = SNOWFLAKE_CREDENTIALS_CONTRACT
@@ -257,6 +267,8 @@ class Connection(APIObject):
         # this is a bit clunky but we deserialize and then reserialize for now
         if isinstance(credentials, Credentials):
             credentials = credentials.serialize()
+        # we can't serialize handles
+        self._handle = kwargs.pop('handle')
         super(Connection, self).__init__(credentials=credentials,
                                          *args, **kwargs)
         # this will validate itself in its own __init__.
@@ -267,8 +279,15 @@ class Connection(APIObject):
     def credentials(self):
         return self._credentials
 
+    @property
+    def handle(self):
+        return self._handle
+
+    @handle.setter
+    def handle(self, value):
+        self._handle = value
+
     name = named_property('name', 'The name of this connection')
-    handle = named_property('handle', 'The handle to the database connection')
     state = named_property('state', 'The state of the connection')
     transaction_open = named_property(
         'transaction_open',

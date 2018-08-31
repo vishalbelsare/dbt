@@ -6,7 +6,6 @@ import six
 import yaml
 
 import dbt.utils
-import dbt.project
 import dbt.deprecations
 import dbt.clients.git
 import dbt.clients.system

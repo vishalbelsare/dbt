@@ -259,7 +259,7 @@ class Profile(object):
         }
 
     @staticmethod
-    def _creds_from_profile(args, profile, profile_name, target_name):
+    def _credentials_from_profile(profile, profile_name, target_name, threads=None):
         # if entries are strings, we want to render them so we can get any
         # environment variables that might store important credentials elements.
         credentials = {
@@ -269,9 +269,9 @@ class Profile(object):
 
         # valid connections never include the number of threads, but it's
         # stored on a per-connection level in the raw configs
-        threads = credentials.pop('threads', DEFAULT_THREADS)
-        if hasattr(args, 'threads') and args.threads is not None:
-            threads = args.threads
+        default_threads = credentials.pop('threads', DEFAULT_THREADS)
+        if threads is None:
+            threads = default_threads
 
         # credentials carry their 'type' in their actual type, not their
         # attributes. We do want this in order to pick our Credentials class.
@@ -290,6 +290,50 @@ class Profile(object):
             )
         return credentials, threads
 
+    @classmethod
+    def from_credentials(cls, credentials, threads, profile_name, target_name,
+                         user_cfg=None):
+        if user_cfg is None:
+            user_cfg = {}
+        send_anonymous_usage_stats = user_cfg.get(
+            'send_anonymous_usage_stats',
+            DEFAULT_SEND_ANONYMOUS_USAGE_STATS
+        )
+        use_colors = user_cfg.get(
+            'use_colors',
+            DEFAULT_USE_COLORS
+        )
+        return cls(
+            profile_name=profile_name,
+            target_name=target_name,
+            send_anonymous_usage_stats=send_anonymous_usage_stats,
+            use_colors=use_colors,
+            threads=threads,
+            credentials=credentials
+        )
+
+    @classmethod
+    def from_raw_profile_info(cls, raw_profile, profile_name, user_cfg=None,
+                              target_override=None, threads_override=None):
+        try:
+            target_name = cls._pick_target(raw_profile, target_override)
+        except DbtProfileError:
+            # we can supply some additional context here.
+            raise DbtProfileError(
+                "target not specified in profile '{}'".format(profile_name)
+            )
+        profile_data = cls._get_profile_data(raw_profile, target_name)
+        credentials, threads = cls._credentials_from_profile(
+            profile_data, profile_name, target_name, threads_override
+        )
+        return cls.from_credentials(
+            credentials=credentials,
+            profile_name=profile_name,
+            target_name=target_name,
+            threads=threads,
+            user_cfg=user_cfg
+        )
+
     @staticmethod
     def _pick_profile_name(args, profile_name=None):
         if args.profile is not None:
@@ -299,15 +343,13 @@ class Profile(object):
         return profile_name
 
     @staticmethod
-    def _pick_target(args, raw_profile):
-        if args.target is not None:
-            target_name = args.target
+    def _pick_target(raw_profile, target_override=None):
+        if target_override is not None:
+            target_name = target_override
         elif 'target' in raw_profile:
             target_name = raw_profile['target']
         else:
-            raise DbtProfileError(
-                "target not specified in profile '{}'".format(profile_name)
-            )
+            raise DbtProfileError('target not specified in profile')
         return target_name
 
     @staticmethod
@@ -334,6 +376,7 @@ class Profile(object):
         profile if specified, return the profile component of the runtime
         config.
         """
+        threads_override = getattr(args, 'threads', None)
         profiles_dir = getattr(args, 'profiles_dir', DEFAULT_PROFILES_DIR)
         raw_profiles = read_profile(profiles_dir)
 
@@ -343,32 +386,28 @@ class Profile(object):
                 "Could not find profile named '{}'".format(profile_name)
             )
         raw_profile = raw_profiles[profile_name]
-
-        target_name = cls._pick_target(args, raw_profile)
-        profile_data = cls._get_profile_data(raw_profile, target_name)
-
         user_cfg = raw_profiles.get('config', {})
-        send_anonymous_usage_stats = user_cfg.get(
-            'send_anonymous_usage_stats',
-            DEFAULT_SEND_ANONYMOUS_USAGE_STATS
-        )
-        use_colors = user_cfg.get(
-            'use_colors',
-            DEFAULT_USE_COLORS
-        )
 
-        credentials, threads = cls._creds_from_profile(
-            args, profile_data, profile_name, target_name
-        )
+        target_override = getattr(args, 'target', None)
 
-        return cls(
+        return cls.from_raw_profile_info(
+            raw_profile=raw_profile,
             profile_name=profile_name,
-            target_name=target_name,
-            send_anonymous_usage_stats=send_anonymous_usage_stats,
-            use_colors=use_colors,
-            threads=threads,
-            credentials=credentials
+            user_cfg=user_cfg,
+            target_override=target_override,
+            threads_override=threads_override,
         )
+
+def package_config_from_data(packages_data):
+    if packages_data is None:
+        packages_data = {'packages': []}
+
+    try:
+        packages = PackageConfig(**packages_data)
+    except dbt.exceptions.ValidationException as e:
+        raise DbtProfileError('Invalid package config: {}'.format(str(e)))
+    return packages
+
 
 
 def package_config_from_root(project_root):
@@ -379,13 +418,8 @@ def package_config_from_root(project_root):
     if dbt.clients.system.path_exists(package_filepath):
         packages_dict = _load_yaml(package_filepath)
     else:
-        packages_dict = {'packages': []}
-
-    try:
-        packages = PackageConfig(**packages_dict)
-    except dbt.exceptions.ValidationException as e:
-        raise DbtProfileError('Invalid package config: {}'.format(str(e)))
-    return packages
+        packages_dict = None
+    return package_config_from_data(packages_dict)
 
 
 class RuntimeConfig(Project, Profile):
@@ -479,24 +513,24 @@ class RuntimeConfig(Project, Profile):
             cli_vars=cli_vars
         )
 
-    # @classmethod
-    # def from_project(cls, args, project, packages_dict=None):
-    #     """Create a RuntimeConfig from a dbt_project.yml file's configuration
-    #     contents and the command-line arguments.
-    #     """
-    #     if packages_dict is None:
-    #         packages_dict = {'packages': []}
-    #     # the only thing we need from the profile info for this is the profile
-    #     # field, which may be empty.
-    #     profile = Profile.from_args(args, project_dict.get('profile'))
-    #     cli_vars = dbt.utils.parse_cli_vars(getattr(args, 'vars', '{}'))
-
-    #     return cls.from_parts(
-    #         project=project,
-    #         profile=profile,
-    #         packages=packages,
-    #         cli_vars=cli_vars
-    #     )
+    @classmethod
+    def from_parts_or_dicts(cls, project, profile, packages=None, cli_vars='{}'):
+        """Only use this for tests!"""
+        if not isinstance(project, Project):
+            project = Project.from_project_config(deepcopy(project))
+        if not isinstance(profile, Profile):
+            profile = Profile.from_raw_profile_info(deepcopy(profile),
+                                                    project.profile_name)
+        if not isinstance(packages, PackageConfig):
+            packages = package_config_from_data(packages)
+        if not isinstance(cli_vars, dict):
+            cli_vars = dbt.utils.parse_cli_vars(cli_vars)
+        return cls.from_parts(
+            project=project,
+            profile=profile,
+            packages=packages,
+            cli_vars=cli_vars
+        )
 
     def new_project(self, project_root):
         """Given a new project root, read in its project dictionary, supply the
@@ -546,7 +580,6 @@ class RuntimeConfig(Project, Profile):
         profile = Profile.from_args(args, project.profile_name)
 
         cli_vars = dbt.utils.parse_cli_vars(getattr(args, 'vars', '{}'))
-
 
         return cls.from_parts(
             project=project,

@@ -4,7 +4,6 @@ import json
 from collections import OrderedDict, defaultdict
 import sqlparse
 
-import dbt.project
 import dbt.utils
 import dbt.include
 import dbt.tracking

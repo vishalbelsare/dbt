@@ -42,7 +42,7 @@ class RedshiftAdapter(PostgresAdapter):
 
     @classmethod
     def get_tmp_iam_cluster_credentials(cls, credentials):
-        cluster_id = credentials.cluster_id
+        cluster_id = credentials.get('cluster_id')
 
         # default via:
         # boto3.readthedocs.io/en/latest/reference/services/redshift.html
@@ -61,10 +61,10 @@ class RedshiftAdapter(PostgresAdapter):
         )
 
         # replace username and password with temporary redshift credentials
-        return credentials.replace({
-            'user': cluster_creds.get('DbUser'),
-            'pass': cluster_creds.get('DbPassword')
-        })
+        return credentials.incorporate(
+            user=cluster_creds.get('DbUser'),
+            password=cluster_creds.get('DbPassword')
+        )
 
     @classmethod
     def get_credentials(cls, credentials):

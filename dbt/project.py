@@ -63,197 +63,197 @@ class DbtProfileError(Exception):
         super(DbtProfileError, self).__init__(message)
 
 
-class Project(object):
+# class Project(object):
 
-    def __init__(self, cfg, profiles, profiles_dir, profile_to_load=None,
-                 args=None):
+#     def __init__(self, cfg, profiles, profiles_dir, profile_to_load=None,
+#                  args=None):
 
-        self.cfg = default_project_cfg.copy()
-        self.cfg.update(cfg)
-        # docs paths defaults to the exact value of source-paths
-        if 'docs-paths' not in self.cfg:
-            self.cfg['docs-paths'] = self.cfg['source-paths'][:]
-        self.profiles = default_profiles.copy()
-        self.profiles.update(profiles)
-        self.profiles_dir = profiles_dir
-        self.profile_to_load = profile_to_load
-        self.args = args
+#         self.cfg = default_project_cfg.copy()
+#         self.cfg.update(cfg)
+#         # docs paths defaults to the exact value of source-paths
+#         if 'docs-paths' not in self.cfg:
+#             self.cfg['docs-paths'] = self.cfg['source-paths'][:]
+#         self.profiles = default_profiles.copy()
+#         self.profiles.update(profiles)
+#         self.profiles_dir = profiles_dir
+#         self.profile_to_load = profile_to_load
+#         self.args = args
 
-        # load profile from dbt_config.yml if cli arg isn't supplied
-        if self.profile_to_load is None and self.cfg['profile'] is not None:
-            self.profile_to_load = self.cfg['profile']
+#         # load profile from dbt_config.yml if cli arg isn't supplied
+#         if self.profile_to_load is None and self.cfg['profile'] is not None:
+#             self.profile_to_load = self.cfg['profile']
 
-        if self.profile_to_load is None:
-            raise DbtProjectError(NO_SUPPLIED_PROFILE_ERROR, self)
+#         if self.profile_to_load is None:
+#             raise DbtProjectError(NO_SUPPLIED_PROFILE_ERROR, self)
 
-        if self.profile_to_load in self.profiles:
-            self.cfg.update(self.profiles[self.profile_to_load])
-            self.compile_and_update_target()
+#         if self.profile_to_load in self.profiles:
+#             self.cfg.update(self.profiles[self.profile_to_load])
+#             self.compile_and_update_target()
 
-        else:
-            raise DbtProjectError(
-                "Could not find profile named '{}'"
-                .format(self.profile_to_load), self)
+#         else:
+#             raise DbtProjectError(
+#                 "Could not find profile named '{}'"
+#                 .format(self.profile_to_load), self)
 
-        if self.cfg.get('models') is None:
-            self.cfg['models'] = {}
+#         if self.cfg.get('models') is None:
+#             self.cfg['models'] = {}
 
-        if self.cfg.get('quoting') is None:
-            self.cfg['quoting'] = {}
+#         if self.cfg.get('quoting') is None:
+#             self.cfg['quoting'] = {}
 
-        if self.cfg['models'].get('vars') is None:
-            self.cfg['models']['vars'] = {}
+#         if self.cfg['models'].get('vars') is None:
+#             self.cfg['models']['vars'] = {}
 
-        global_vars = dbt.utils.parse_cli_vars(getattr(args, 'vars', '{}'))
-        self.cfg['cli_vars'] = global_vars
+#         global_vars = dbt.utils.parse_cli_vars(getattr(args, 'vars', '{}'))
+#         self.cfg['cli_vars'] = global_vars
 
-    def __str__(self):
-        return pprint.pformat({'project': self.cfg, 'profiles': self.profiles})
+#     def __str__(self):
+#         return pprint.pformat({'project': self.cfg, 'profiles': self.profiles})
 
-    def __repr__(self):
-        return self.__str__()
+#     def __repr__(self):
+#         return self.__str__()
 
-    def __getitem__(self, key):
-        return self.cfg.__getitem__(key)
+#     def __getitem__(self, key):
+#         return self.cfg.__getitem__(key)
 
-    def __contains__(self, key):
-        return self.cfg.__contains__(key)
+#     def __contains__(self, key):
+#         return self.cfg.__contains__(key)
 
-    def __setitem__(self, key, value):
-        return self.cfg.__setitem__(key, value)
+#     def __setitem__(self, key, value):
+#         return self.cfg.__setitem__(key, value)
 
-    def get(self, key, default=None):
-        return self.cfg.get(key, default)
+#     def get(self, key, default=None):
+#         return self.cfg.get(key, default)
 
-    def handle_deprecations(self):
-        pass
+#     def handle_deprecations(self):
+#         pass
 
-    def is_valid_package_name(self):
-        if re.match(r"^[^\d\W]\w*\Z", self['name']):
-            return True
-        else:
-            return False
+#     def is_valid_package_name(self):
+#         if re.match(r"^[^\d\W]\w*\Z", self['name']):
+#             return True
+#         else:
+#             return False
 
-    def compile_target(self, target_cfg):
-        ctx = self.base_context()
+#     def compile_target(self, target_cfg):
+#         ctx = self.base_context()
 
-        compiled = {}
-        for (key, value) in target_cfg.items():
-            is_str = isinstance(value, dbt.compat.basestring)
+#         compiled = {}
+#         for (key, value) in target_cfg.items():
+#             is_str = isinstance(value, dbt.compat.basestring)
 
-            if is_str:
-                compiled_val = dbt.clients.jinja.get_rendered(value, ctx)
-            else:
-                compiled_val = value
+#             if is_str:
+#                 compiled_val = dbt.clients.jinja.get_rendered(value, ctx)
+#             else:
+#                 compiled_val = value
 
-            compiled[key] = compiled_val
+#             compiled[key] = compiled_val
 
-        if self.args and hasattr(self.args, 'threads') and self.args.threads:
-            compiled['threads'] = self.args.threads
+#         if self.args and hasattr(self.args, 'threads') and self.args.threads:
+#             compiled['threads'] = self.args.threads
 
-        return compiled
+#         return compiled
 
-    def compile_and_update_target(self):
-        target = self.cfg['target']
-        run_env = self.run_environment()
-        self.cfg['outputs'][target].update(run_env)
+#     def compile_and_update_target(self):
+#         target = self.cfg['target']
+#         run_env = self.run_environment()
+#         self.cfg['outputs'][target].update(run_env)
 
-    def run_environment(self):
-        target_name = self.cfg['target']
-        if target_name in self.cfg['outputs']:
-            target_cfg = self.cfg['outputs'][target_name]
-            return self.compile_target(target_cfg)
-        else:
+#     def run_environment(self):
+#         target_name = self.cfg['target']
+#         if target_name in self.cfg['outputs']:
+#             target_cfg = self.cfg['outputs'][target_name]
+#             return self.compile_target(target_cfg)
+#         else:
 
-            outputs = self.cfg.get('outputs', {}).keys()
-            output_names = [" - {}".format(output) for output in outputs]
+#             outputs = self.cfg.get('outputs', {}).keys()
+#             output_names = [" - {}".format(output) for output in outputs]
 
-            msg = ("The profile '{}' does not have a target named '{}'. The "
-                   "valid target names for this profile are:\n{}".format(
-                        self.profile_to_load,
-                        target_name,
-                        "\n".join(output_names)))
+#             msg = ("The profile '{}' does not have a target named '{}'. The "
+#                    "valid target names for this profile are:\n{}".format(
+#                         self.profile_to_load,
+#                         target_name,
+#                         "\n".join(output_names)))
 
-            raise DbtProfileError(msg, self)
+#             raise DbtProfileError(msg, self)
 
-    def get_target(self):
-        ctx = self.context().get('env').copy()
-        ctx['name'] = self.cfg['target']
-        return ctx
+#     def get_target(self):
+#         ctx = self.context().get('env').copy()
+#         ctx['name'] = self.cfg['target']
+#         return ctx
 
-    def base_context(self):
-        return {
-            'env_var': dbt.context.common.env_var
-        }
+#     def base_context(self):
+#         return {
+#             'env_var': dbt.context.common.env_var
+#         }
 
-    def context(self):
-        target_cfg = self.run_environment()
-        filtered_target = copy.deepcopy(target_cfg)
-        filtered_target.pop('pass', None)
+#     def context(self):
+#         target_cfg = self.run_environment()
+#         filtered_target = copy.deepcopy(target_cfg)
+#         filtered_target.pop('pass', None)
 
-        ctx = self.base_context()
-        ctx.update({
-            'env': filtered_target
-        })
+#         ctx = self.base_context()
+#         ctx.update({
+#             'env': filtered_target
+#         })
 
-        return ctx
+#         return ctx
 
-    def validate(self):
-        self.handle_deprecations()
+#     def validate(self):
+#         self.handle_deprecations()
 
-        target_cfg = self.run_environment()
-        package_name = self.cfg.get('name', None)
-        package_version = self.cfg.get('version', None)
+#         target_cfg = self.run_environment()
+#         package_name = self.cfg.get('name', None)
+#         package_version = self.cfg.get('version', None)
 
-        if package_name is None or package_version is None:
-            raise DbtProjectError(
-                "Project name and version is not provided", self)
+#         if package_name is None or package_version is None:
+#             raise DbtProjectError(
+#                 "Project name and version is not provided", self)
 
-        if not self.is_valid_package_name():
-            raise DbtProjectError(
-                ('Package name can only contain letters, numbers, and '
-                 'underscores, and must start with a letter.'), self)
+#         if not self.is_valid_package_name():
+#             raise DbtProjectError(
+#                 ('Package name can only contain letters, numbers, and '
+#                  'underscores, and must start with a letter.'), self)
 
-        db_type = target_cfg.get('type')
-        validator = dbt.contracts.connection.CREDENTIALS_MAPPING.get(db_type)
+#         db_type = target_cfg.get('type')
+#         validator = dbt.contracts.connection.CREDENTIALS_MAPPING.get(db_type)
 
-        if validator is None:
-            valid_types = dbt.contracts.connection.CREDENTIALS_MAPPING.keys()
-            raise DbtProjectError(
-                "Invalid db type '{}' should be one of [{}]".format(
-                    db_type,
-                    ", ".join(valid_types)), self)
+#         if validator is None:
+#             valid_types = dbt.contracts.connection.CREDENTIALS_MAPPING.keys()
+#             raise DbtProjectError(
+#                 "Invalid db type '{}' should be one of [{}]".format(
+#                     db_type,
+#                     ", ".join(valid_types)), self)
 
-        # This is python so I guess we'll just make a class here...
-        # it might be wise to tack an extend classmethod onto APIObject,
-        # similar to voluptous, to do all the deep merge stuff for us and spit
-        # out a new class.
-        class CredentialsValidator(APIObject):
-            SCHEMA = deep_merge(
-                validator.SCHEMA,
-                {
-                    'properties': {
-                        'type': {'type': 'string'},
-                        'threads': {'type': 'integer'},
-                    },
-                    'required': (
-                        validator.SCHEMA.get('required', []) +
-                        ['type', 'threads']
-                    ),
-                }
-            )
+#         # This is python so I guess we'll just make a class here...
+#         # it might be wise to tack an extend classmethod onto APIObject,
+#         # similar to voluptous, to do all the deep merge stuff for us and spit
+#         # out a new class.
+#         class CredentialsValidator(APIObject):
+#             SCHEMA = deep_merge(
+#                 validator.SCHEMA,
+#                 {
+#                     'properties': {
+#                         'type': {'type': 'string'},
+#                         'threads': {'type': 'integer'},
+#                     },
+#                     'required': (
+#                         validator.SCHEMA.get('required', []) +
+#                         ['type', 'threads']
+#                     ),
+#                 }
+#             )
 
-        try:
-            CredentialsValidator(**target_cfg)
-        except dbt.exceptions.ValidationException as e:
-            raise DbtProjectError(str(e), self)
+#         try:
+#             CredentialsValidator(**target_cfg)
+#         except dbt.exceptions.ValidationException as e:
+#             raise DbtProjectError(str(e), self)
 
-    def hashed_name(self):
-        if self.cfg.get("name", None) is None:
-            return None
+#     def hashed_name(self):
+#         if self.cfg.get("name", None) is None:
+#             return None
 
-        project_name = self['name']
-        return hashlib.md5(project_name.encode('utf-8')).hexdigest()
+#         project_name = self['name']
+#         return hashlib.md5(project_name.encode('utf-8')).hexdigest()
 
 
 def read_profiles(profiles_dir=None):

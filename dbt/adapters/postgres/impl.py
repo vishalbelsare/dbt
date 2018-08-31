@@ -62,7 +62,8 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
             logger.debug('Connection is already open, skipping open.')
             return connection
 
-        credentials = connection.credentials
+        base_credentials = connection.credentials
+        credentials = cls.get_credentials(connection.credentials.incorporate())
         kwargs = {}
         keepalives_idle = credentials.get('keepalives_idle',
                                           cls.DEFAULT_TCP_KEEPALIVE)

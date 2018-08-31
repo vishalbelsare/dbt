@@ -295,10 +295,12 @@ PROJECTS_LIST_PROJECT = {
     'type': 'object',
     'additionalProperties': False,
     'patternProperties': {
-        '.*': PROJECT_CONTRACT,
+        '.*': CONFIG_CONTRACT,
     },
 }
 
 
 class ProjectList(APIObject):
     SCHEMA = PROJECTS_LIST_PROJECT
+    def serialize(self):
+        return {k: v.serialize() for k, v in self._contents.items()}
