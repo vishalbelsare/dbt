@@ -259,9 +259,11 @@ class Profile(object):
         }
 
     @staticmethod
-    def _credentials_from_profile(profile, profile_name, target_name, threads=None):
+    def _credentials_from_profile(profile, profile_name, target_name,
+                                  threads=None):
         # if entries are strings, we want to render them so we can get any
-        # environment variables that might store important credentials elements.
+        # environment variables that might store important credentials
+        # elements.
         credentials = {
             k: _render(v, {'env_var': env_var})
             for k, v in profile.items()
@@ -398,6 +400,7 @@ class Profile(object):
             threads_override=threads_override,
         )
 
+
 def package_config_from_data(packages_data):
     if packages_data is None:
         packages_data = {'packages': []}
@@ -407,7 +410,6 @@ def package_config_from_data(packages_data):
     except dbt.exceptions.ValidationException as e:
         raise DbtProfileError('Invalid package config: {}'.format(str(e)))
     return packages
-
 
 
 def package_config_from_root(project_root):
@@ -426,7 +428,8 @@ class RuntimeConfig(Project, Profile):
     """The runtime configuration, as constructed from its components. There's a
     lot because there is a lot of stuff!
     TODO:
-        - make credentials/threads optional for some commands (dbt deps should not care)
+        - make credentials/threads optional for some commands (dbt deps should
+            not care)
             - via subclassing/superclassing, probably
     """
     def __init__(self, project_name, version, project_root, source_paths,
@@ -514,7 +517,8 @@ class RuntimeConfig(Project, Profile):
         )
 
     @classmethod
-    def from_parts_or_dicts(cls, project, profile, packages=None, cli_vars='{}'):
+    def from_parts_or_dicts(cls, project, profile, packages=None,
+                            cli_vars='{}'):
         """Only use this for tests!"""
         if not isinstance(project, Project):
             project = Project.from_project_config(deepcopy(project))

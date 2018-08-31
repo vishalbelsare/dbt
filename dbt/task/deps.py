@@ -26,6 +26,7 @@ DOWNLOADS_PATH = os.path.join(tempfile.gettempdir(), "dbt-downloads")
 
 class Package(APIObject):
     SCHEMA = NotImplemented
+
     def __init__(self, *args, **kwargs):
         super(Package, self).__init__(*args, **kwargs)
         self._cached_metadata = None
@@ -93,6 +94,7 @@ class Package(APIObject):
 
 class RegistryPackage(Package):
     SCHEMA = REGISTRY_PACKAGE_CONTRACT
+
     def __init__(self, *args, **kwargs):
         super(RegistryPackage, self).__init__(*args, **kwargs)
         self._version = self._sanitize_version(self._contents['version'])
@@ -175,6 +177,7 @@ class RegistryPackage(Package):
 
 class GitPackage(Package):
     SCHEMA = GIT_PACKAGE_CONTRACT
+
     def __init__(self, *args, **kwargs):
         super(GitPackage, self).__init__(*args, **kwargs)
         self._checkout_name = hashlib.md5(six.b(self.git)).hexdigest()
@@ -245,6 +248,7 @@ class GitPackage(Package):
 
 class LocalPackage(Package):
     SCHEMA = LOCAL_PACKAGE_CONTRACT
+
     @property
     def name(self):
         return self.local

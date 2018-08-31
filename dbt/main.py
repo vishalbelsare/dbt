@@ -30,7 +30,6 @@ import dbt.deprecations
 from dbt.utils import ExitCodes
 
 
-
 PROFILES_HELP_MESSAGE = """
 For more information on configuring profiles, please consult the dbt docs:
 

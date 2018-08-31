@@ -168,7 +168,6 @@ def get_docs_macro_name(docs_name, with_prefix=True):
         return docs_name
 
 
-
 def dependencies_for_path(config, module_path):
     """Given a module path, yield all dependencies in that path."""
     import dbt.project

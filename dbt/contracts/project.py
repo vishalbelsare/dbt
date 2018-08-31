@@ -48,9 +48,10 @@ PROJECT_CONTRACT = {
                 {
                     'type': 'string',
                     'pattern': (
-                        # this does not support the full semver (does not allow a
-                        # trailing -fooXYZ) and is not restrictive enough for full
-                        # semver, (allows '1.0'). But it's like 'semver lite'.
+                        # this does not support the full semver (does not
+                        # allow a trailing -fooXYZ) and is not restrictive
+                        # enough for full semver, (allows '1.0'). But it's like
+                        # 'semver lite'.
                         r'^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(\.(?:0|[1-9]\d*))?$'
                     ),
                 },
@@ -268,6 +269,13 @@ PROFILE_INFO_CONTRACT = {
 }
 
 
+def _merge_requirements(base, *args):
+    required = base[:]
+    for arg in args:
+        required.extend(arg['required'])
+    return required
+
+
 CONFIG_CONTRACT = deep_merge(
     PROJECT_CONTRACT,
     PACKAGE_FILE_CONTRACT,
@@ -279,10 +287,12 @@ CONFIG_CONTRACT = deep_merge(
                 'additionalProperties': True,
             },
         },
-        'required': PROJECT_CONTRACT['required'] + \
-                    PACKAGE_FILE_CONTRACT['required'] + \
-                    PROFILE_INFO_CONTRACT['required'] + \
-                    ['cli_vars']
+        'required': _merge_requirements(
+            ['cli_vars'],
+            PROJECT_CONTRACT,
+            PACKAGE_FILE_CONTRACT,
+            PROFILE_INFO_CONTRACT
+        ),
     },
 )
 
@@ -302,5 +312,6 @@ PROJECTS_LIST_PROJECT = {
 
 class ProjectList(APIObject):
     SCHEMA = PROJECTS_LIST_PROJECT
+
     def serialize(self):
         return {k: v.serialize() for k, v in self._contents.items()}

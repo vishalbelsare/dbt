@@ -196,6 +196,7 @@ CONNECTION_CONTRACT = {
 class Credentials(APIObject):
     """Common base class for credentials. This is not valid to instantiate"""
     SCHEMA = NotImplemented
+
     @property
     def type(self):
         raise NotImplementedError(
@@ -205,6 +206,7 @@ class Credentials(APIObject):
 
 class PostgresCredentials(Credentials):
     SCHEMA = POSTGRES_CREDENTIALS_CONTRACT
+
     @property
     def type(self):
         return 'postgres'
@@ -222,6 +224,7 @@ class PostgresCredentials(Credentials):
 
 class RedshiftCredentials(PostgresCredentials):
     SCHEMA = REDSHIFT_CREDENTIALS_CONTRACT
+
     def __init__(self, *args, **kwargs):
         kwargs.setdefault('method', 'database')
         super(RedshiftCredentials, self).__init__(*args, **kwargs)
@@ -230,8 +233,10 @@ class RedshiftCredentials(PostgresCredentials):
     def type(self):
         return 'redshift'
 
+
 class SnowflakeCredentials(Credentials):
     SCHEMA = SNOWFLAKE_CREDENTIALS_CONTRACT
+
     @property
     def type(self):
         return 'snowflake'
@@ -239,6 +244,7 @@ class SnowflakeCredentials(Credentials):
 
 class BigQueryCredentials(Credentials):
     SCHEMA = BIGQUERY_CREDENTIALS_CONTRACT
+
     @property
     def type(self):
         return 'bigquery'
@@ -263,6 +269,7 @@ def create_credentials(typename, credentials):
 
 class Connection(APIObject):
     SCHEMA = CONNECTION_CONTRACT
+
     def __init__(self, credentials, *args, **kwargs):
         # this is a bit clunky but we deserialize and then reserialize for now
         if isinstance(credentials, Credentials):
@@ -293,4 +300,3 @@ class Connection(APIObject):
         'transaction_open',
         'True if there is an open transaction, False otherwise.'
     )
-
