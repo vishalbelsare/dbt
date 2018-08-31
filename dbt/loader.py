@@ -24,7 +24,7 @@ class GraphLoader(object):
         tests, patches = SchemaTestLoader.load_all(root_project, all_projects)
 
         manifest = Manifest(nodes=nodes, macros=macros, docs=docs,
-                            generated_at=timestring(), project=project_obj)
+                            generated_at=timestring(), config=project_config)
         manifest.add_nodes(tests)
         manifest.patch_nodes(patches)
 

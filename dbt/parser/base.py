@@ -118,8 +118,8 @@ class BaseParser(object):
         # Clean up any open conns opened by adapter functions that hit the db
         db_wrapper = context['adapter']
         adapter = db_wrapper.adapter
-        profile = db_wrapper.profile
-        adapter.release_connection(profile, parsed_node.name)
+        runtime_config = db_wrapper.config
+        adapter.release_connection(runtime_config, parsed_node.name)
 
         # Special macro defined in the global project
         schema_override = config.config.get('schema')

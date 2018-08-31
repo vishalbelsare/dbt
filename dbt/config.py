@@ -1,9 +1,11 @@
 import os.path
 from copy import deepcopy
+import hashlib
 
 import dbt.exceptions
 import dbt.clients.yaml_helper
 import dbt.clients.system
+import dbt.utils
 from dbt.contracts.connection import Connection, create_credentials
 from dbt.contracts.project import Project as ProjectContract, Configuration, \
     PackageConfig
@@ -107,7 +109,7 @@ class Project(object):
                  source_paths, macro_paths, data_paths, test_paths,
                  analysis_paths, docs_paths, target_path, clean_targets,
                  log_path, modules_path, quoting, models, on_run_start,
-                 on_run_end, archive):
+                 on_run_end, archive, seeds):
         self.project_name = project_name
         self.version = version
         self.project_root = project_root
@@ -127,6 +129,7 @@ class Project(object):
         self.on_run_start = on_run_start
         self.on_run_end = on_run_end
         self.archive = archive
+        self.seeds = seeds
 
     @classmethod
     def from_project_config(cls, project_dict):
@@ -163,7 +166,8 @@ class Project(object):
         models = project_dict.get('models', {})
         on_run_start = project_dict.get('on-run-start', [])
         on_run_end = project_dict.get('on-run-end', [])
-        archive = project_dict.get('archive', {})
+        archive = project_dict.get('archive', [])
+        seeds = project_dict.get('seeds', {})
 
         return cls(
             project_name=name,
@@ -184,7 +188,8 @@ class Project(object):
             models=models,
             on_run_start=on_run_start,
             on_run_end=on_run_end,
-            archive=archive
+            archive=archive,
+            seeds=seeds
         )
 
     def to_project_config(self):
@@ -207,6 +212,7 @@ class Project(object):
             'on-run-start': self.on_run_start,
             'on-run-end': self.on_run_end,
             'archive': self.archive,
+            'seeds': self.seeds,
         })
 
     @classmethod
@@ -393,9 +399,9 @@ class RuntimeConfig(Project, Profile):
                  macro_paths, data_paths, test_paths, analysis_paths,
                  docs_paths, target_path, clean_targets, log_path,
                  modules_path, quoting, models, on_run_start, on_run_end,
-                 archive, profile_name, target_name,
+                 archive, seeds, profile_name, target_name,
                  send_anonymous_usage_stats, use_colors, threads, credentials,
-                 packages):
+                 packages, cli_vars):
         # 'project'
         Project.__init__(
             self,
@@ -417,7 +423,8 @@ class RuntimeConfig(Project, Profile):
             models=models,
             on_run_start=on_run_start,
             on_run_end=on_run_end,
-            archive=archive
+            archive=archive,
+            seeds=seeds,
         )
         # 'profile'
         Profile.__init__(
@@ -431,10 +438,12 @@ class RuntimeConfig(Project, Profile):
         )
         # 'package'
         self.packages = packages
+        # 'vars'
+        self.cli_vars = cli_vars
         self.validate()
 
     @classmethod
-    def from_parts(cls, project, profile, packages):
+    def from_parts(cls, project, profile, packages, cli_vars):
         quoting = deepcopy(
             DEFAULT_QUOTING_ADAPTER.get(profile.credentials.type,
                                         DEFAULT_QUOTING_GLOBAL)
@@ -459,31 +468,35 @@ class RuntimeConfig(Project, Profile):
             on_run_start=project.on_run_start,
             on_run_end=project.on_run_end,
             archive=project.archive,
+            seeds=project.seeds,
             packages=packages,
             profile_name=profile.profile_name,
             target_name=profile.target_name,
             send_anonymous_usage_stats=profile.send_anonymous_usage_stats,
             use_colors=profile.use_colors,
             threads=profile.threads,
-            credentials=profile.credentials
+            credentials=profile.credentials,
+            cli_vars=cli_vars
         )
 
-    @classmethod
-    def from_project(cls, args, project, packages_dict=None):
-        """Create a RuntimeConfig from a dbt_project.yml file's configuration
-        contents and the command-line arguments.
-        """
-        if packages_dict is None:
-            packages_dict = {'packages': []}
-        # the only thing we need from the profile info for this is the profile
-        # field, which may be empty.
-        profile = Profile.from_args(args, project_dict.get('profile'))
+    # @classmethod
+    # def from_project(cls, args, project, packages_dict=None):
+    #     """Create a RuntimeConfig from a dbt_project.yml file's configuration
+    #     contents and the command-line arguments.
+    #     """
+    #     if packages_dict is None:
+    #         packages_dict = {'packages': []}
+    #     # the only thing we need from the profile info for this is the profile
+    #     # field, which may be empty.
+    #     profile = Profile.from_args(args, project_dict.get('profile'))
+    #     cli_vars = dbt.utils.parse_cli_vars(getattr(args, 'vars', '{}'))
 
-        return cls.from_parts(
-            project=project,
-            profile=profile,
-            packages=packages
-        )
+    #     return cls.from_parts(
+    #         project=project,
+    #         profile=profile,
+    #         packages=packages,
+    #         cli_vars=cli_vars
+    #     )
 
     def new_project(self, project_root):
         """Given a new project root, read in its project dictionary, supply the
@@ -497,13 +510,15 @@ class RuntimeConfig(Project, Profile):
         return self.from_parts(
             project=project,
             profile=profile,
-            packages=packages
+            packages=packages,
+            cli_vars=deepcopy(self.cli_vars)
         )
 
     def serialize(self):
         result = self.to_project_config()
         result.update(self.to_profile_info())
         result.update(self.packages.serialize())
+        result['cli_vars'] = deepcopy(self.cli_vars)
         # override credentials with serialized form
         result['credentials'] = self.credentials.serialize()
         return result
@@ -530,7 +545,15 @@ class RuntimeConfig(Project, Profile):
         # build the profile
         profile = Profile.from_args(args, project.profile_name)
 
-        return cls.from_parts(project=project, profile=profile, packages=packages)
+        cli_vars = dbt.utils.parse_cli_vars(getattr(args, 'vars', '{}'))
+
+
+        return cls.from_parts(
+            project=project,
+            profile=profile,
+            packages=packages,
+            cli_vars=cli_vars
+        )
 
 
 def _load_yaml(path):

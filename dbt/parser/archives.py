@@ -8,9 +8,9 @@ import os
 
 class ArchiveParser(BaseParser):
     @classmethod
-    def parse_archives_from_project(cls, project):
+    def parse_archives_from_project(cls, config):
         archives = []
-        archive_configs = project.get('archive', [])
+        archive_configs = config.archive
 
         for archive_config in archive_configs:
             tables = archive_config.get('tables')
@@ -26,11 +26,11 @@ class ArchiveParser(BaseParser):
                 fake_path = [config['target_schema'], config['target_table']]
                 archives.append({
                     'name': table.get('target_table'),
-                    'root_path': project.get('project-root'),
+                    'root_path': config.project_root,
                     'resource_type': NodeType.Archive,
                     'path': os.path.join('archive', *fake_path),
                     'original_file_path': 'dbt_project.yml',
-                    'package_name': project.get('name'),
+                    'package_name': config.project_name,
                     'config': config,
                     'raw_sql': '{{config(materialized="archive")}} -- noop'
                 })

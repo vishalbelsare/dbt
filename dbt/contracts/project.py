@@ -129,14 +129,12 @@ PROJECT_CONTRACT = {
             'items': {'type': 'string'},
         },
         'archive': {
-            'anyOf': [
-                ARCHIVE_CONFIG_CONTRACT,
-                {
-                    'type': 'object',
-                    'additionalProperties': False,
-                    'properties': {},
-                },
-            ],
+            'type': 'array',
+            'items': ARCHIVE_CONFIG_CONTRACT,
+        },
+        'seeds': {
+            'type': 'object',
+            'additionalProperties': True,
         },
     },
     'required': ['name', 'version'],
@@ -235,37 +233,57 @@ class PackageConfig(APIObject):
     SCHEMA = PACKAGE_FILE_CONTRACT
 
 
+PROFILE_INFO_CONTRACT = {
+    'type': 'object',
+    'additionalProperties': False,
+    'properties': {
+        'profile_name': {
+            'type': 'string',
+        },
+        'target_name': {
+            'type': 'string',
+        },
+        'send_anonymous_usage_stats': {
+            'type': 'boolean',
+        },
+        'use_colors': {
+            'type': 'boolean',
+        },
+        'threads': {
+            'type': 'number',
+        },
+        'credentials': {
+            'anyOf': [
+                POSTGRES_CREDENTIALS_CONTRACT,
+                REDSHIFT_CREDENTIALS_CONTRACT,
+                SNOWFLAKE_CREDENTIALS_CONTRACT,
+                BIGQUERY_CREDENTIALS_CONTRACT,
+            ],
+        },
+    },
+    'required': [
+        'profile_name', 'target_name', 'send_anonymous_usage_stats',
+        'use_colors', 'threads', 'credentials'
+    ],
+}
+
 
 CONFIG_CONTRACT = deep_merge(
     PROJECT_CONTRACT,
     PACKAGE_FILE_CONTRACT,
+    PROFILE_INFO_CONTRACT,
     {
         'properties': {
-            'profile_name': {
-                'type': 'string',
+            'cli_vars': {
+                'type': 'object',
+                'additionalProperties': True,
             },
-            'target_name': {
-                'type': 'string',
-            },
-            'send_anonymous_usage_stats': {
-                'type': 'boolean',
-            },
-            'use_colors': {
-                'type': 'boolean',
-            },
-            'threads': {
-                'type': 'number',
-            },
-            'credentials': {
-                'anyOf': [
-                    POSTGRES_CREDENTIALS_CONTRACT,
-                    REDSHIFT_CREDENTIALS_CONTRACT,
-                    SNOWFLAKE_CREDENTIALS_CONTRACT,
-                    BIGQUERY_CREDENTIALS_CONTRACT,
-                ],
-            }
-        }
-    }
+        },
+        'required': PROJECT_CONTRACT['required'] + \
+                    PACKAGE_FILE_CONTRACT['required'] + \
+                    PROFILE_INFO_CONTRACT['required'] + \
+                    ['cli_vars']
+    },
 )
 
 
