@@ -8,6 +8,7 @@ import dbt.flags
 import dbt.parser
 from dbt.parser import ModelParser, MacroParser, DataTestParser, SchemaParser, ParserUtils
 from dbt.utils import timestring
+from dbt.config import RuntimeConfig
 
 from dbt.node_types import NodeType
 from dbt.contracts.graph.manifest import Manifest
@@ -30,11 +31,7 @@ class ParserTest(unittest.TestCase):
 
         self.maxDiff = None
 
-        self.root_project_config = {
-            'name': 'root',
-            'version': '0.1',
-            'profile': 'test',
-            'project-root': os.path.abspath('.'),
+        profile_data = {
             'target': 'test',
             'quoting': {},
             'outputs': {
@@ -42,24 +39,37 @@ class ParserTest(unittest.TestCase):
                     'type': 'postgres',
                     'host': 'localhost',
                     'schema': 'analytics',
+                    'user': 'test',
+                    'pass': 'test',
+                    'dbname': 'test',
+                    'port': 1,
                 }
             }
         }
 
-        self.snowplow_project_config = {
+        root_project = {
+            'name': 'root',
+            'version': '0.1',
+            'profile': 'test',
+            'project-root': os.path.abspath('.'),
+        }
+
+
+        self.root_project_config = RuntimeConfig.from_parts_or_dicts(
+            project=root_project,
+            profile=profile_data
+        )
+
+        snowplow_project = {
             'name': 'snowplow',
             'version': '0.1',
+            'profile': 'test',
             'project-root': os.path.abspath('./dbt_modules/snowplow'),
-            'target': 'test',
-            'quoting': {},
-            'outputs': {
-                'test': {
-                    'type': 'postgres',
-                    'host': 'localhost',
-                    'schema': 'analytics',
-                }
-            }
         }
+
+        self.snowplow_project_config = RuntimeConfig.from_parts_or_dicts(
+            project=snowplow_project, profile=profile_data
+        )
 
         self.model_config = {
             'enabled': True,
@@ -137,7 +147,7 @@ class ParserTest(unittest.TestCase):
             'raw_sql': ("select * from events"),
         }]
 
-        self.root_project_config['models'] = {
+        self.root_project_config.models = {
             'materialized': 'ephemeral',
             'root': {
                 'nested': {
@@ -876,7 +886,7 @@ class ParserTest(unittest.TestCase):
         )
 
     def test__root_project_config(self):
-        self.root_project_config['models'] = {
+        self.root_project_config.models = {
             'materialized': 'ephemeral',
             'root': {
                 'view': {
@@ -1010,7 +1020,7 @@ class ParserTest(unittest.TestCase):
         )
 
     def test__other_project_config(self):
-        self.root_project_config['models'] = {
+        self.root_project_config.models = {
             'materialized': 'ephemeral',
             'root': {
                 'view': {
@@ -1029,7 +1039,7 @@ class ParserTest(unittest.TestCase):
             }
         }
 
-        self.snowplow_project_config['models'] = {
+        self.snowplow_project_config.models = {
             'snowplow': {
                 'enabled': False,
                 'views': {
