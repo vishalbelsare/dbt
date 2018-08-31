@@ -77,8 +77,6 @@ class SnowflakeAdapter(PostgresAdapter):
             logger.debug('Connection is already open, skipping open.')
             return connection
 
-        result = connection.copy()
-
         try:
             credentials = connection.credentials
             handle = snowflake.connector.connect(
@@ -92,19 +90,19 @@ class SnowflakeAdapter(PostgresAdapter):
                 autocommit=False
             )
 
-            result.handle = handle
-            result.state = 'open'
+            connection.handle = handle
+            connection.state = 'open'
         except snowflake.connector.errors.Error as e:
             logger.debug("Got an error when attempting to open a snowflake "
                          "connection: '{}'"
                          .format(e))
 
-            result.handle = None
-            result.state = 'fail'
+            connection.handle = None
+            connection.state = 'fail'
 
             raise dbt.exceptions.FailedToConnectException(str(e))
 
-        return result
+        return connection
 
     @classmethod
     def list_relations(cls, config, schema, model_name=None):

@@ -62,7 +62,7 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
             logger.debug('Connection is already open, skipping open.')
             return connection
 
-        base_credentials = connection.credentials
+        credentials = connection.credentials
         kwargs = {}
         keepalives_idle = credentials.get('keepalives_idle',
                                           cls.DEFAULT_TCP_KEEPALIVE)
@@ -81,19 +81,19 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
                 connect_timeout=10,
                 **kwargs)
 
-            result.handle = handle
-            result.state = 'open'
+            connection.handle = handle
+            connection.state = 'open'
         except psycopg2.Error as e:
             logger.debug("Got an error when attempting to open a postgres "
                          "connection: '{}'"
                          .format(e))
 
-            result.handle = None
-            result.state = 'fail'
+            connection.handle = None
+            connection.state = 'fail'
 
             raise dbt.exceptions.FailedToConnectException(str(e))
 
-        return result
+        return connection
 
     @classmethod
     def cancel_connection(cls, config, connection):
@@ -158,7 +158,7 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
         results = cursor.fetchall()
 
         return [cls.Relation.create(
-            database=profile.dbname,
+            database=config.connection.dbname,
             schema=_schema,
             identifier=name,
             quote_policy={
