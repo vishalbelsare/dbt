@@ -124,7 +124,7 @@ class SnowflakeAdapter(PostgresAdapter):
 
         }
         return [cls.Relation.create(
-            database=config.database,
+            database=config.credentials.database,
             schema=_schema,
             identifier=name,
             quote_policy={
