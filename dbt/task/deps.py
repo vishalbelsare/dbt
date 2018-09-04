@@ -211,7 +211,8 @@ class GitPackage(Package):
         return "revision {}".format(self.version_name())
 
     def incorporate(self, other):
-        return GitPackage(git=self.git, revision=(self.version + other.version))
+        return GitPackage(git=self.git,
+                          revision=(self.version + other.version))
 
     def _resolve_version(self):
         requested = set(self.version)
