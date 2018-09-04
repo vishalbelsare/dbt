@@ -167,7 +167,7 @@ def run_from_args(parsed):
     log_path = None
 
     if config is not None:
-        log_path = config.get('log-path', 'logs')
+        log_path = config.log_path
 
     initialize_logger(parsed.debug, log_path)
     logger.debug("Tracking: {}".format(dbt.tracking.active_user.state()))
@@ -203,7 +203,7 @@ def run_from_task(task, config, parsed_args):
 
 def invoke_dbt(parsed):
     task = None
-    proj = None
+    cfg = None
 
     try:
         cfg = config.RuntimeConfig.from_args(parsed)
@@ -255,7 +255,7 @@ def invoke_dbt(parsed):
 
     task = parsed.cls(args=parsed, config=cfg)
 
-    return task, proj
+    return task, cfg
 
 
 def parse_args(args):
