@@ -52,6 +52,10 @@ class TestCLIInvocationWithProfilesDir(DBTIntegrationTest):
 
         shutil.rmtree("./dbt-profile")
 
+    @property
+    def run_target(self):
+        return 'default'
+
     def custom_profile_config(self):
         return {
             'config': {
@@ -70,7 +74,6 @@ class TestCLIInvocationWithProfilesDir(DBTIntegrationTest):
                         'schema': self.custom_schema
                     },
                 },
-                'run-target': 'default'
             }
         }
 

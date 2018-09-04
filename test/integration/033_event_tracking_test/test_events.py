@@ -50,7 +50,7 @@ class TestEventTracking(DBTIntegrationTest):
         track_fn.reset_mock()
 
         project_id = hashlib.md5(
-            self.project['name'].encode('utf-8')).hexdigest()
+            self.config.project_name.encode('utf-8')).hexdigest()
         version = str(dbt.version.get_installed_version())
 
         if expect_raise:
