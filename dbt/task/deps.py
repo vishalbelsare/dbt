@@ -75,21 +75,21 @@ class Package(APIObject):
     def nice_version_name(self):
         raise NotImplementedError()
 
-    def _fetch_metadata(self, project):
+    def _fetch_metadata(self, config):
         raise NotImplementedError()
 
-    def fetch_metadata(self, project):
+    def fetch_metadata(self, config):
         if not self._cached_metadata:
-            self._cached_metadata = self._fetch_metadata(project)
+            self._cached_metadata = self._fetch_metadata(config)
         return self._cached_metadata
 
-    def get_project_name(self, project):
-        metadata = self.fetch_metadata(project)
-        return metadata["name"]
+    def get_project_name(self, config):
+        metadata = self.fetch_metadata(config)
+        return metadata.project_name
 
-    def get_installation_path(self, project):
-        dest_dirname = self.get_project_name(project)
-        return os.path.join(project['modules-path'], dest_dirname)
+    def get_installation_path(self, config):
+        dest_dirname = self.get_project_name(config)
+        return os.path.join(config.modules_path, dest_dirname)
 
 
 class RegistryPackage(Package):
@@ -156,13 +156,15 @@ class RegistryPackage(Package):
             dbt.exceptions.raise_dependency_error(
                 'Cannot fetch metadata until the version is pinned.')
 
-    def _fetch_metadata(self, project):
+    def _fetch_metadata(self, config):
         version_string = self.version_name()
+        # TODO(jeb): this needs to actually return a RuntimeConfig, instead of
+        # parsed json from a URL
         return registry.package_version(self.package, version_string)
 
-    def install(self, project):
+    def install(self, config):
         version_string = self.version_name()
-        metadata = self.fetch_metadata(project)
+        metadata = self.fetch_metadata(config)
 
         tar_name = '{}.{}.tar.gz'.format(self.package, version_string)
         tar_path = os.path.realpath(os.path.join(DOWNLOADS_PATH, tar_name))
@@ -170,8 +172,8 @@ class RegistryPackage(Package):
 
         download_url = metadata.get('downloads').get('tarball')
         dbt.clients.system.download(download_url, tar_path)
-        deps_path = project['modules-path']
-        package_name = self.get_project_name(project)
+        deps_path = config.modules_path
+        package_name = self.get_project_name(config)
         dbt.clients.system.untar_package(tar_path, deps_path, package_name)
 
 
@@ -181,7 +183,7 @@ class GitPackage(Package):
     def __init__(self, *args, **kwargs):
         super(GitPackage, self).__init__(*args, **kwargs)
         self._checkout_name = hashlib.md5(six.b(self.git)).hexdigest()
-        self._version = self._sanitize_version(self._contents['version'])
+        self.version = self._contents.get('revision')
 
     @property
     def name(self):
@@ -209,7 +211,7 @@ class GitPackage(Package):
         return "revision {}".format(self.version_name())
 
     def incorporate(self, other):
-        return GitPackage(git=self.git, version=(self.version + other.version))
+        return GitPackage(git=self.git, revision=(self.version + other.version))
 
     def _resolve_version(self):
         requested = set(self.version)
@@ -219,7 +221,7 @@ class GitPackage(Package):
                 '{} contains: {}'.format(self.git, requested))
         self.version = requested.pop()
 
-    def _checkout(self, project):
+    def _checkout(self, config):
         """Performs a shallow clone of the repository into the downloads
         directory. This function can be called repeatedly. If the project has
         already been checked out at this version, it will be a no-op. Returns
@@ -232,18 +234,18 @@ class GitPackage(Package):
             dirname=self._checkout_name)
         return os.path.join(DOWNLOADS_PATH, dir_)
 
-    def _fetch_metadata(self, project):
-        path = self._checkout(project)
-        return dbt.utils.load_project_with_profile(project, path)
+    def _fetch_metadata(self, config):
+        path = self._checkout(config)
+        return config.new_project(path)
 
-    def install(self, project):
-        dest_path = self.get_installation_path(project)
+    def install(self, config):
+        dest_path = self.get_installation_path(config)
         if os.path.exists(dest_path):
             if dbt.clients.system.path_is_symlink(dest_path):
                 dbt.clients.system.remove_file(dest_path)
             else:
                 dbt.clients.system.rmdir(dest_path)
-        shutil.move(self._checkout(project), dest_path)
+        shutil.move(self._checkout(config), dest_path)
 
 
 class LocalPackage(Package):
@@ -265,19 +267,19 @@ class LocalPackage(Package):
     def nice_version_name(self):
         return self.version_name()
 
-    def _fetch_metadata(self, project):
+    def _fetch_metadata(self, config):
         project_file_path = dbt.clients.system.resolve_path_from_base(
             self.local,
-            project['project-root'])
+            config.project_root)
 
-        return dbt.utils.load_project_with_profile(project, project_file_path)
+        return config.new_project(project_file_path)
 
-    def install(self, project):
+    def install(self, config):
         src_path = dbt.clients.system.resolve_path_from_base(
             self.local,
-            project['project-root'])
+            config.project_root)
 
-        dest_path = self.get_installation_path(project)
+        dest_path = self.get_installation_path(config)
 
         can_create_symlink = dbt.clients.system.supports_symlinks()
 
@@ -306,16 +308,15 @@ def _parse_package(dict_):
             'yours has {} of them - {}'
             .format(only_1_keys, len(specified), specified))
     if dict_.get('package'):
-        return RegistryPackage(package=dict_['package'],
-                               version=dict_.get('version'))
+        return RegistryPackage(**dict_)
     if dict_.get('git'):
         if dict_.get('version'):
             msg = ("Keyword 'version' specified for git package {}.\nDid "
                    "you mean 'revision'?".format(dict_.get('git')))
             dbt.exceptions.raise_dependency_error(msg)
-        return GitPackage(git=dict_['git'], version=dict_.get('revision'))
+        return GitPackage(**dict_)
     if dict_.get('local'):
-        return LocalPackage(local=dict_['local'])
+        return LocalPackage(**dict_)
     dbt.exceptions.raise_dependency_error(
         'Malformed package definition. Must contain package, git, or local.')
 
@@ -397,12 +398,13 @@ class DepsTask(BaseTask):
     def _check_for_duplicate_project_names(self, final_deps):
         seen = set()
         for _, package in final_deps.items():
-            if self.config.project_name in seen:
+            project_name = package.get_project_name(self.config)
+            if project_name in seen:
                 dbt.exceptions.raise_dependency_error(
                     'Found duplicate project {}. This occurs when a dependency'
                     ' has the same project name as some other dependency.'
-                    .format(self.config.project_name))
-            seen.add(self.config.project_name)
+                    .format(project_name))
+            seen.add(project_name)
 
     def track_package_install(self, package_name, source_type, version):
         version = 'local' if source_type == 'local' else version
@@ -420,7 +422,7 @@ class DepsTask(BaseTask):
         dbt.clients.system.make_directory(self.config.modules_path)
         dbt.clients.system.make_directory(DOWNLOADS_PATH)
 
-        packages = [p.serialize() for p in self.config.packages]
+        packages = self.config.packages.packages
         if not packages:
             logger.info('Warning: No packages were found in packages.yml')
             return
@@ -433,15 +435,15 @@ class DepsTask(BaseTask):
             for name, package in pending_deps.items():
                 final_deps.incorporate(package)
                 final_deps[name].resolve_version()
-                target_metadata = final_deps[name].fetch_metadata(self.project)
-                sub_deps.incorporate_from_yaml(_read_packages(target_metadata))
+                target_config = final_deps[name].fetch_metadata(self.config)
+                sub_deps.incorporate_from_yaml(target_config.packages.packages)
             pending_deps = sub_deps
 
         self._check_for_duplicate_project_names(final_deps)
 
         for _, package in final_deps.items():
             logger.info('Installing %s', package)
-            package.install(self.project)
+            package.install(self.config)
             logger.info('  Installed from %s\n', package.nice_version_name())
 
             self.track_package_install(
