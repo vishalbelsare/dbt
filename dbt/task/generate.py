@@ -210,7 +210,7 @@ class GenerateTask(CompileTask):
             os.path.join(self.config.target_path, 'index.html'))
 
         manifest = self._get_manifest()
-        adapter = get_adapter(profile)
+        adapter = get_adapter(self.config)
 
         dbt.ui.printer.print_timestamped_line("Building catalog")
         results = adapter.get_catalog(self.config, manifest)
@@ -226,7 +226,7 @@ class GenerateTask(CompileTask):
             'generated_at': dbt.utils.timestring(),
         }
 
-        path = os.path.join(self.project.target_path, CATALOG_FILENAME)
+        path = os.path.join(self.config.target_path, CATALOG_FILENAME)
         write_json(path, results)
 
         dbt.ui.printer.print_timestamped_line(

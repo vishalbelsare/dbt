@@ -346,6 +346,7 @@ def generate_base(model, model_dict, config, manifest, source_config,
     target = config.to_profile_info()
     del target['credentials']
     target.update(config.credentials.serialize())
+    target['type'] = config.credentials.type
     target.pop('pass', None)
     target['name'] = target_name
     adapter = get_adapter(config)
