@@ -1364,7 +1364,7 @@ class TestDocsGenerate(DBTIntegrationTest):
         if self.adapter_type == 'bigquery':
             status = 'OK'
             compiled_sql = '\n\nselect * from `{}`.`{}`.seed'.format(
-                self.config.connection.credentials.project, schema
+                self.config.credentials.project, schema
             )
         status = None
 
