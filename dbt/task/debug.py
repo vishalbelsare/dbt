@@ -24,9 +24,26 @@ class DebugTask(BaseTask):
         logger.info(message)
 
     def diag(self):
+        # if we got here, a 'dbt_project.yml' does exist, but we have not tried
+        # to parse it.
+        project_profile = None
+        try:
+            project = dbt.config.Project.from_current_directory()
+            project_profile = project.profile_name
+        except dbt.config.DbtConfigError as exc:
+            project = 'ERROR loading project: {!s}'.format(exc)
+
+        # log the profile we decided on as well, if it's available.
+        try:
+            profile = dbt.config.Profile.from_args(self.args, project_profile)
+        except dbt.config.DbtConfigError as exc:
+            profile = 'ERROR loading profile: {!s}'.format(exc)
+
         logger.info("args: {}".format(self.args))
-        logger.info("config: ")
-        pprint.pprint(self.config)
+        logger.info("")
+        logger.info("project:\n{!s}".format(project))
+        logger.info("")
+        logger.info("profile:\n{!s}".format(profile))
 
     def run(self):
 

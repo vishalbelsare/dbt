@@ -1,6 +1,7 @@
 import os.path
 from copy import deepcopy
 import hashlib
+import pprint
 
 import dbt.exceptions
 import dbt.clients.yaml_helper
@@ -52,18 +53,19 @@ defined in your profiles.yml file. You can find profiles.yml here:
 {profiles_file}/profiles.yml
 """.format(profiles_file=DEFAULT_PROFILES_DIR)
 
-
-class DbtProjectError(Exception):
+class DbtConfigError(Exception):
     def __init__(self, message, project=None, result_type='invalid_project'):
         self.project = project
-        super(DbtProjectError, self).__init__(message)
+        super(DbtConfigError, self).__init__(message)
         self.result_type = result_type
 
 
-class DbtProfileError(Exception):
-    def __init__(self, message, project=None, result_type='invalid_profile'):
-        super(DbtProfileError, self).__init__(message)
-        self.result_type = result_type
+class DbtProjectError(DbtConfigError):
+    pass
+
+
+class DbtProfileError(DbtConfigError):
+    pass
 
 
 def read_profile(profiles_dir):
@@ -212,6 +214,12 @@ class Project(object):
             packages=packages
         )
 
+    def __str__(self):
+        cfg = self.to_project_config()
+        if self.packages is not None:
+            cfg['packages'] = self.packages.serialize()
+        return pprint.pformat(cfg)
+
     def to_project_config(self):
         return deepcopy({
             'name': self.project_name,
@@ -282,6 +290,9 @@ class Profile(object):
             'threads': self.threads,
             'credentials': self.credentials.incorporate(),
         }
+
+    def __str__(self):
+        return pprint.pformat(self.to_profile_info())
 
     @staticmethod
     def _credentials_from_profile(profile, profile_name, target_name,
@@ -585,6 +596,9 @@ class RuntimeConfig(Project, Profile):
         # override credentials with serialized form
         result['credentials'] = self.credentials.serialize()
         return result
+
+    def __str__(self):
+        return pprint.pformat(self.serialize())
 
     def validate(self):
         try:

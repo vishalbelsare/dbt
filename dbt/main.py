@@ -208,7 +208,9 @@ def invoke_dbt(parsed):
         if parsed.which == 'deps':
             # deps doesn't need a profile, so don't require one.
             cfg = config.Project.from_current_directory()
-        else:
+        elif parsed.which != 'debug':
+            # for debug, we will attempt to load the various configurations as
+            # part of the task, so just leave cfg=None.
             cfg = config.RuntimeConfig.from_args(parsed)
     except config.DbtProjectError as e:
         logger.info("Encountered an error while reading the project:")
