@@ -8,7 +8,6 @@ import traceback
 
 import dbt.version
 import dbt.flags as flags
-import dbt.project as project
 import dbt.task.run as run_task
 import dbt.task.compile as compile_task
 import dbt.task.debug as debug_task
@@ -143,7 +142,7 @@ def get_nearest_project_dir():
 
 def run_from_args(parsed):
     task = None
-    config = None
+    cfg = None
 
     if parsed.which == 'init':
         # bypass looking for a project file if we're running `dbt init`
@@ -162,39 +161,39 @@ def run_from_args(parsed):
         if res is None:
             raise RuntimeError("Could not run dbt")
         else:
-            task, config = res
+            task, cfg = res
 
     log_path = None
 
-    if config is not None:
-        log_path = config.log_path
+    if cfg is not None:
+        log_path = cfg.log_path
 
     initialize_logger(parsed.debug, log_path)
     logger.debug("Tracking: {}".format(dbt.tracking.active_user.state()))
 
-    dbt.tracking.track_invocation_start(config=config, args=parsed)
+    dbt.tracking.track_invocation_start(config=cfg, args=parsed)
 
-    results = run_from_task(task, config, parsed)
+    results = run_from_task(task, cfg, parsed)
 
     return task, results
 
 
-def run_from_task(task, config, parsed_args):
+def run_from_task(task, cfg, parsed_args):
     result = None
     try:
         result = task.run()
         dbt.tracking.track_invocation_end(
-            config=config, args=parsed_args, result_type="ok"
+            config=cfg, args=parsed_args, result_type="ok"
         )
     except (dbt.exceptions.NotImplementedException,
             dbt.exceptions.FailedToConnectException) as e:
         logger.info('ERROR: {}'.format(e))
         dbt.tracking.track_invocation_end(
-            config=config, args=parsed_args, result_type="error"
+            config=cfg, args=parsed_args, result_type="error"
         )
     except Exception as e:
         dbt.tracking.track_invocation_end(
-            config=config, args=parsed_args, result_type="error"
+            config=cfg, args=parsed_args, result_type="error"
         )
         raise
 
@@ -207,11 +206,11 @@ def invoke_dbt(parsed):
 
     try:
         cfg = config.RuntimeConfig.from_args(parsed)
-    except project.DbtProjectError as e:
+    except config.DbtProjectError as e:
         logger.info("Encountered an error while reading the project:")
         logger.info(dbt.compat.to_string(e))
 
-        all_profiles = project.read_profiles(parsed.profiles_dir).keys()
+        all_profiles = config.read_profiles(parsed.profiles_dir).keys()
 
         if len(all_profiles) > 0:
             logger.info("Defined profiles:")
@@ -229,7 +228,7 @@ def invoke_dbt(parsed):
             result_type=e.result_type)
 
         return None
-    except project.DbtProfileError as e:
+    except config.DbtProfileError as e:
         logger.info("Encountered an error while reading profiles:")
         logger.info("  ERROR {}".format(str(e)))
 
@@ -288,11 +287,11 @@ def parse_args(args):
 
     base_subparser.add_argument(
         '--profiles-dir',
-        default=project.default_profiles_dir,
+        default=config.DEFAULT_PROFILES_DIR,
         type=str,
         help="""
         Which directory to look in for the profiles.yml file. Default = {}
-        """.format(project.default_profiles_dir)
+        """.format(config.DEFAULT_PROFILES_DIR)
     )
 
     base_subparser.add_argument(

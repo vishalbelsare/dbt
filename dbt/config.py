@@ -81,6 +81,22 @@ def read_profile(profiles_dir):
     return {}
 
 
+
+def read_profiles(profiles_dir=None):
+    """This is only used in main, for some error handling"""
+    if profiles_dir is None:
+        profiles_dir = DEFAULT_PROFILES_DIR
+
+    raw_profiles = read_profile(profiles_dir)
+
+    if raw_profiles is None:
+        profiles = {}
+    else:
+        profiles = {k: v for (k, v) in raw_profiles.items() if k != 'config'}
+
+    return profiles
+
+
 def read_config(profiles_dir):
     profile = read_profile(profiles_dir)
     if profile is None:
