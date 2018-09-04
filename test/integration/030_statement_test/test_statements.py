@@ -38,8 +38,6 @@ class TestStatements(DBTIntegrationTest):
         self.assertManyTablesEqual(["STATEMENT_ACTUAL", "STATEMENT_EXPECTED"])
 
 
-
-
 class TestStatementsBigquery(DBTIntegrationTest):
 
     @property
