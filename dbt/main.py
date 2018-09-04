@@ -205,7 +205,11 @@ def invoke_dbt(parsed):
     cfg = None
 
     try:
-        cfg = config.RuntimeConfig.from_args(parsed)
+        if parsed.which == 'deps':
+            # deps doesn't need a profile, so don't require one.
+            cfg = config.Project.from_current_directory()
+        else:
+            cfg = config.RuntimeConfig.from_args(parsed)
     except config.DbtProjectError as e:
         logger.info("Encountered an error while reading the project:")
         logger.info(dbt.compat.to_string(e))

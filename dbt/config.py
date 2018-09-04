@@ -11,8 +11,6 @@ from dbt.contracts.project import Project as ProjectContract, Configuration, \
     PackageConfig
 from dbt.context.common import env_var
 from dbt import compat
-from dbt.project import DbtProjectError, DbtProfileError, \
-    NO_SUPPLIED_PROFILE_ERROR
 
 from dbt.logger import GLOBAL_LOGGER as logger
 
@@ -59,11 +57,13 @@ class DbtProjectError(Exception):
     def __init__(self, message, project=None, result_type='invalid_project'):
         self.project = project
         super(DbtProjectError, self).__init__(message)
+        self.result_type = result_type
 
 
 class DbtProfileError(Exception):
     def __init__(self, message, project=None, result_type='invalid_profile'):
         super(DbtProfileError, self).__init__(message)
+        self.result_type = result_type
 
 
 def read_profile(profiles_dir):
@@ -125,7 +125,7 @@ class Project(object):
                  source_paths, macro_paths, data_paths, test_paths,
                  analysis_paths, docs_paths, target_path, clean_targets,
                  log_path, modules_path, quoting, models, on_run_start,
-                 on_run_end, archive, seeds):
+                 on_run_end, archive, seeds, packages):
         self.project_name = project_name
         self.version = version
         self.project_root = project_root
@@ -146,9 +146,10 @@ class Project(object):
         self.on_run_end = on_run_end
         self.archive = archive
         self.seeds = seeds
+        self.packages = packages
 
     @classmethod
-    def from_project_config(cls, project_dict):
+    def from_project_config(cls, project_dict, packages_dict=None):
         # just for validation.
         try:
             ProjectContract(**project_dict)
@@ -185,6 +186,8 @@ class Project(object):
         archive = project_dict.get('archive', [])
         seeds = project_dict.get('seeds', {})
 
+        packages = package_config_from_data(packages_dict)
+
         return cls(
             project_name=name,
             version=version,
@@ -205,7 +208,8 @@ class Project(object):
             on_run_start=on_run_start,
             on_run_end=on_run_end,
             archive=archive,
-            seeds=seeds
+            seeds=seeds,
+            packages=packages
         )
 
     def to_project_config(self):
@@ -244,7 +248,12 @@ class Project(object):
 
         project_dict = _load_yaml(project_yaml_filepath)
         project_dict['project-root'] = project_root
-        return cls.from_project_config(project_dict)
+        packages_dict = package_data_from_root(project_root)
+        return cls.from_project_config(project_dict, packages_dict)
+
+    @classmethod
+    def from_current_directory(cls):
+        return cls.from_project_root(os.getcwd())
 
     def hashed_name(self):
         return hashlib.md5(self.project_name.encode('utf-8')).hexdigest()
@@ -429,7 +438,7 @@ def package_config_from_data(packages_data):
     return packages
 
 
-def package_config_from_root(project_root):
+def package_data_from_root(project_root):
     package_filepath = dbt.clients.system.resolve_path_from_base(
         'packages.yml', project_root
     )
@@ -438,6 +447,12 @@ def package_config_from_root(project_root):
         packages_dict = _load_yaml(package_filepath)
     else:
         packages_dict = None
+    return packages_dict
+
+
+
+def package_config_from_root(project_root):
+    packages_dict = package_data_from_root(project_root)
     return package_config_from_data(packages_dict)
 
 
@@ -479,6 +494,7 @@ class RuntimeConfig(Project, Profile):
             on_run_end=on_run_end,
             archive=archive,
             seeds=seeds,
+            packages=packages,
         )
         # 'profile'
         Profile.__init__(
@@ -490,14 +506,12 @@ class RuntimeConfig(Project, Profile):
             threads=threads,
             credentials=credentials
         )
-        # 'package'
-        self.packages = packages
         # 'vars'
         self.cli_vars = cli_vars
         self.validate()
 
     @classmethod
-    def from_parts(cls, project, profile, packages, cli_vars):
+    def from_parts(cls, project, profile, cli_vars):
         quoting = deepcopy(
             DEFAULT_QUOTING_ADAPTER.get(profile.credentials.type,
                                         DEFAULT_QUOTING_GLOBAL)
@@ -523,7 +537,7 @@ class RuntimeConfig(Project, Profile):
             on_run_end=project.on_run_end,
             archive=project.archive,
             seeds=project.seeds,
-            packages=packages,
+            packages=project.packages,
             profile_name=profile.profile_name,
             target_name=profile.target_name,
             send_anonymous_usage_stats=profile.send_anonymous_usage_stats,
@@ -534,22 +548,18 @@ class RuntimeConfig(Project, Profile):
         )
 
     @classmethod
-    def from_parts_or_dicts(cls, project, profile, packages=None,
-                            cli_vars='{}'):
+    def from_parts_or_dicts(cls, project, profile, packages=None, cli_vars='{}'):
         """Only use this for tests!"""
         if not isinstance(project, Project):
-            project = Project.from_project_config(deepcopy(project))
+            project = Project.from_project_config(deepcopy(project), packages)
         if not isinstance(profile, Profile):
             profile = Profile.from_raw_profile_info(deepcopy(profile),
                                                     project.profile_name)
-        if not isinstance(packages, PackageConfig):
-            packages = package_config_from_data(packages)
         if not isinstance(cli_vars, dict):
             cli_vars = dbt.utils.parse_cli_vars(cli_vars)
         return cls.from_parts(
             project=project,
             profile=profile,
-            packages=packages,
             cli_vars=cli_vars
         )
 
@@ -561,12 +571,9 @@ class RuntimeConfig(Project, Profile):
         profile = Profile(**self.to_profile_info())
         # load the new project and its packages
         project = Project.from_project_root(project_root)
-        packages = package_config_from_root(project_root)
-        # load the new packages
         return self.from_parts(
             project=project,
             profile=profile,
-            packages=packages,
             cli_vars=deepcopy(self.cli_vars)
         )
 
@@ -591,12 +598,8 @@ class RuntimeConfig(Project, Profile):
         read in packages.yml if it exists, and use them to find the profile to
         load.
         """
-        # build the project
-        project_dir = os.path.dirname(os.path.abspath('dbt_project.yml'))
-        project = Project.from_project_root(project_dir)
-
-        # build the PackageConfig
-        packages = package_config_from_root(project_dir)
+        # build the project and read in packages.yml
+        project = Project.from_current_directory()
 
         # build the profile
         profile = Profile.from_args(args, project.profile_name)
@@ -606,7 +609,6 @@ class RuntimeConfig(Project, Profile):
         return cls.from_parts(
             project=project,
             profile=profile,
-            packages=packages,
             cli_vars=cli_vars
         )
 
