@@ -142,14 +142,9 @@ class TestSimpleCopyQuotingIdentifierOn(BaseTestSimpleCopy):
 
     @use_profile("snowflake")
     def test__snowflake__simple_copy__quoting_on(self):
-        # TODO: I don't think we should have to call `load_config` here. either
-        # the test (test class?) should get changed to have quoting set during
-        # setUp, or we should implicitly call load_config, or something. Going
-        # through multiple schema drops on snowflake is agony.
         self.use_default_project({
             "data-paths": [self.dir("seed-initial")],
         })
-        self.load_config()
 
         results = self.run_dbt(["seed"])
         self.assertEqual(len(results),  1)
