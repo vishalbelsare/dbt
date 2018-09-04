@@ -159,7 +159,7 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
         results = cursor.fetchall()
 
         return [cls.Relation.create(
-            database=config.connection.dbname,
+            database=config.credentials.dbname,
             schema=_schema,
             identifier=name,
             quote_policy={

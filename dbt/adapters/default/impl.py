@@ -435,7 +435,7 @@ class DefaultAdapter(object):
             if len(connections_available) > 0:
                 logger.debug('Re-using an available connection from the pool.')
                 to_return = connections_available.pop()
-                to_return['name'] = name
+                to_return.name = name
                 return to_return
 
             elif num_allocated >= max_connections:
@@ -587,7 +587,7 @@ class DefaultAdapter(object):
                 'it does not have one open!'.format(connection.name))
 
         logger.debug('On {}: ROLLBACK'.format(connection.name))
-        connection.get('handle').rollback()
+        connection.handle.rollback()
 
         connection.transaction_open = False
         connections_in_use[connection.name] = connection

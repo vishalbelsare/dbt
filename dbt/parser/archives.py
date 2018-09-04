@@ -19,11 +19,11 @@ class ArchiveParser(BaseParser):
                 continue
 
             for table in tables:
-                config = table.copy()
-                config['source_schema'] = archive_config.get('source_schema')
-                config['target_schema'] = archive_config.get('target_schema')
+                cfg = table.copy()
+                cfg['source_schema'] = archive_config.get('source_schema')
+                cfg['target_schema'] = archive_config.get('target_schema')
 
-                fake_path = [config['target_schema'], config['target_table']]
+                fake_path = [cfg['target_schema'], cfg['target_table']]
                 archives.append({
                     'name': table.get('target_table'),
                     'root_path': config.project_root,
@@ -31,7 +31,7 @@ class ArchiveParser(BaseParser):
                     'path': os.path.join('archive', *fake_path),
                     'original_file_path': 'dbt_project.yml',
                     'package_name': config.project_name,
-                    'config': config,
+                    'config': cfg,
                     'raw_sql': '{{config(materialized="archive")}} -- noop'
                 })
 
