@@ -402,8 +402,7 @@ class BigQueryAdapter(PostgresAdapter):
         conn = cls.get_connection(config, model_name)
         client = conn.handle
 
-        dataset = cls.get_dataset(config, project, relation.schema,
-                                  model_name)
+        dataset = cls.get_dataset(config, relation.schema, model_name)
 
         table_ref = dataset.table(relation.name)
         table = client.get_table(table_ref)
