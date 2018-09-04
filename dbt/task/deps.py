@@ -75,21 +75,21 @@ class Package(APIObject):
     def nice_version_name(self):
         raise NotImplementedError()
 
-    def _fetch_metadata(self, config):
+    def _fetch_metadata(self, project):
         raise NotImplementedError()
 
-    def fetch_metadata(self, config):
+    def fetch_metadata(self, project):
         if not self._cached_metadata:
-            self._cached_metadata = self._fetch_metadata(config)
+            self._cached_metadata = self._fetch_metadata(project)
         return self._cached_metadata
 
-    def get_project_name(self, config):
-        metadata = self.fetch_metadata(config)
+    def get_project_name(self, project):
+        metadata = self.fetch_metadata(project)
         return metadata.project_name
 
-    def get_installation_path(self, config):
-        dest_dirname = self.get_project_name(config)
-        return os.path.join(config.modules_path, dest_dirname)
+    def get_installation_path(self, project):
+        dest_dirname = self.get_project_name(project)
+        return os.path.join(project.modules_path, dest_dirname)
 
 
 class RegistryPackage(Package):
@@ -156,15 +156,15 @@ class RegistryPackage(Package):
             dbt.exceptions.raise_dependency_error(
                 'Cannot fetch metadata until the version is pinned.')
 
-    def _fetch_metadata(self, config):
+    def _fetch_metadata(self, project):
         version_string = self.version_name()
         # TODO(jeb): this needs to actually return a RuntimeConfig, instead of
         # parsed json from a URL
         return registry.package_version(self.package, version_string)
 
-    def install(self, config):
+    def install(self, project):
         version_string = self.version_name()
-        metadata = self.fetch_metadata(config)
+        metadata = self.fetch_metadata(project)
 
         tar_name = '{}.{}.tar.gz'.format(self.package, version_string)
         tar_path = os.path.realpath(os.path.join(DOWNLOADS_PATH, tar_name))
@@ -172,8 +172,8 @@ class RegistryPackage(Package):
 
         download_url = metadata.get('downloads').get('tarball')
         dbt.clients.system.download(download_url, tar_path)
-        deps_path = config.modules_path
-        package_name = self.get_project_name(config)
+        deps_path = project.modules_path
+        package_name = self.get_project_name(project)
         dbt.clients.system.untar_package(tar_path, deps_path, package_name)
 
 
@@ -222,7 +222,7 @@ class GitPackage(Package):
                 '{} contains: {}'.format(self.git, requested))
         self.version = requested.pop()
 
-    def _checkout(self, config):
+    def _checkout(self, project):
         """Performs a shallow clone of the repository into the downloads
         directory. This function can be called repeatedly. If the project has
         already been checked out at this version, it will be a no-op. Returns
@@ -235,18 +235,18 @@ class GitPackage(Package):
             dirname=self._checkout_name)
         return os.path.join(DOWNLOADS_PATH, dir_)
 
-    def _fetch_metadata(self, config):
-        path = self._checkout(config)
-        return config.new_project(path)
+    def _fetch_metadata(self, project):
+        path = self._checkout(project)
+        return project.from_project_root(path)
 
-    def install(self, config):
-        dest_path = self.get_installation_path(config)
+    def install(self, project):
+        dest_path = self.get_installation_path(project)
         if os.path.exists(dest_path):
             if dbt.clients.system.path_is_symlink(dest_path):
                 dbt.clients.system.remove_file(dest_path)
             else:
                 dbt.clients.system.rmdir(dest_path)
-        shutil.move(self._checkout(config), dest_path)
+        shutil.move(self._checkout(project), dest_path)
 
 
 class LocalPackage(Package):
@@ -268,19 +268,19 @@ class LocalPackage(Package):
     def nice_version_name(self):
         return self.version_name()
 
-    def _fetch_metadata(self, config):
+    def _fetch_metadata(self, project):
         project_file_path = dbt.clients.system.resolve_path_from_base(
             self.local,
-            config.project_root)
+            project.project_root)
 
-        return config.new_project(project_file_path)
+        return project.from_project_root(project_file_path)
 
-    def install(self, config):
+    def install(self, project):
         src_path = dbt.clients.system.resolve_path_from_base(
             self.local,
-            config.project_root)
+            project.project_root)
 
-        dest_path = self.get_installation_path(config)
+        dest_path = self.get_installation_path(project)
 
         can_create_symlink = dbt.clients.system.supports_symlinks()
 
