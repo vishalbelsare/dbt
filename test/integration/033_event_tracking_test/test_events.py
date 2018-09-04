@@ -167,13 +167,18 @@ class TestEventTracking(DBTIntegrationTest):
 
 class TestEventTrackingSuccess(TestEventTracking):
     @property
+    def packages_config(self):
+        return {
+            'packages': [
+                {'git': 'https://github.com/fishtown-analytics/dbt-integration-project'},
+            ],
+        }
+
+    @property
     def project_config(self):
         return {
             "data-paths": [self.dir("data")],
             "test-paths": [self.dir("test")],
-            "repositories": [
-                'https://github.com/fishtown-analytics/dbt-integration-project'
-            ]
         }
 
     @attr(type="postgres")

@@ -24,7 +24,6 @@ class TestSimpleBigQueryRun(DBTIntegrationTest):
 
     @use_profile('bigquery')
     def test__bigquery_simple_run(self):
-        self.use_default_project()
         # make sure seed works twice. Full-refresh is a no-op
         self.run_dbt(['seed'])
         self.run_dbt(['seed', '--full-refresh'])
@@ -49,7 +48,6 @@ class TestSimpleBigQueryRun(DBTIntegrationTest):
 
     @use_profile('bigquery')
     def test__bigquery_exists_non_destructive(self):
-        self.use_default_project()
         self.run_dbt(['seed'])
         # first run dbt. this should work
         self.assertEqual(len(self.run_dbt()), 2)

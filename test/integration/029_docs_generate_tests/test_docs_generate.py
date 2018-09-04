@@ -44,11 +44,18 @@ class TestDocsGenerate(DBTIntegrationTest):
         return self.dir("models")
 
     @property
+    def packages_config(self):
+        return {
+            'packages': [
+                {
+                    'git': 'https://github.com/fishtown-analytics/dbt-integration-project',
+                },
+            ],
+        }
+
+    @property
     def project_config(self):
         return {
-            'repositories': [
-                'https://github.com/fishtown-analytics/dbt-integration-project'
-            ],
             'quoting': {
                 'identifier': False
             }

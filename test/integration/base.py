@@ -173,10 +173,6 @@ class DBTIntegrationTest(unittest.TestCase):
     def packages_config(self):
         return None
 
-    @property
-    def run_target(self):
-        return None
-
     def unique_schema(self):
         schema = self.schema
 
@@ -205,6 +201,7 @@ class DBTIntegrationTest(unittest.TestCase):
 
     def setUp(self):
         flags.reset()
+        self._clean_files()
 
         self.use_profile(self._pick_profile())
         self.use_default_project()
@@ -260,9 +257,6 @@ class DBTIntegrationTest(unittest.TestCase):
             'profile_dir': DBT_CONFIG_DIR,
             'target': None,
         }
-        # TODO: understand how this is supposed to work...
-        if self.run_target is not None:
-            kwargs['target'] = self.run_target
 
         config = RuntimeConfig.from_args(TestArgs(kwargs))
 
@@ -283,18 +277,22 @@ class DBTIntegrationTest(unittest.TestCase):
             self.config, value, quote_key
         )
 
-    def tearDown(self):
-        os.remove(DBT_PROFILES)
-        os.remove("dbt_project.yml")
+    def _clean_files(self):
+        if os.path.exists(DBT_PROFILES):
+            os.remove(DBT_PROFILES)
+        if os.path.exists('dbt_project.yml'):
+            os.remove("dbt_project.yml")
         if os.path.exists('packages.yml'):
             os.remove('packages.yml')
-
         # quick fix for windows bug that prevents us from deleting dbt_modules
         try:
             if os.path.exists('dbt_modules'):
                 shutil.rmtree('dbt_modules')
         except:
             os.rename("dbt_modules", "dbt_modules-{}".format(time.time()))
+
+    def tearDown(self):
+        self._clean_files()
 
         self.adapter = get_adapter(self.config)
 
