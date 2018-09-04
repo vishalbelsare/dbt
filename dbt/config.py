@@ -53,6 +53,7 @@ defined in your profiles.yml file. You can find profiles.yml here:
 {profiles_file}/profiles.yml
 """.format(profiles_file=DEFAULT_PROFILES_DIR)
 
+
 class DbtConfigError(Exception):
     def __init__(self, message, project=None, result_type='invalid_project'):
         self.project = project
@@ -81,7 +82,6 @@ def read_profile(profiles_dir):
             raise dbt.exceptions.ValidationException(msg)
 
     return {}
-
 
 
 def read_profiles(profiles_dir=None):
@@ -461,7 +461,6 @@ def package_data_from_root(project_root):
     return packages_dict
 
 
-
 def package_config_from_root(project_root):
     packages_dict = package_data_from_root(project_root)
     return package_config_from_data(packages_dict)
@@ -559,7 +558,8 @@ class RuntimeConfig(Project, Profile):
         )
 
     @classmethod
-    def from_parts_or_dicts(cls, project, profile, packages=None, cli_vars='{}'):
+    def from_parts_or_dicts(cls, project, profile, packages=None,
+                            cli_vars='{}'):
         """Only use this for tests!"""
         if not isinstance(project, Project):
             project = Project.from_project_config(deepcopy(project), packages)
