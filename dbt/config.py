@@ -324,7 +324,8 @@ class Profile(object):
             raise DbtProfileError(
                 "target not specified in profile '{}'".format(profile_name)
             )
-        profile_data = cls._get_profile_data(raw_profile, target_name)
+        profile_data = cls._get_profile_data(raw_profile, target_name,
+                                             profile_name)
         credentials, threads = cls._credentials_from_profile(
             profile_data, profile_name, target_name, threads_override
         )
@@ -355,7 +356,7 @@ class Profile(object):
         return target_name
 
     @staticmethod
-    def _get_profile_data(raw_profile, target_name):
+    def _get_profile_data(raw_profile, target_name, profile_name):
         if 'outputs' not in raw_profile:
             raise DbtProfileError(
                 "outputs not specified in profile '{}'".format(profile_name)
@@ -367,7 +368,7 @@ class Profile(object):
                                 for output in outputs)
             msg = ("The profile '{}' does not have a target named '{}'. The "
                    "valid target names for this profile are:\n{}"
-                   .format(profile_name, target, outputs))
+                   .format(profile_name, target_name, outputs))
             raise DbtProfileError(msg, result_type='invalid_target')
         profile_data = outputs[target_name]
         return profile_data
