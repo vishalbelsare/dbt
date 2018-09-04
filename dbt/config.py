@@ -540,11 +540,12 @@ class RuntimeConfig(Project, Profile):
         """Given a new project root, read in its project dictionary, supply the
         existing project's profile info, and create a new project file.
         """
-        # copy packages and profile
-        packages = self.packages.incorporate()
+        # copy profile
         profile = Profile(**self.to_profile_info())
-        # load the new project
+        # load the new project and its packages
         project = Project.from_project_root(project_root)
+        packages = package_config_from_root(project_root)
+        # load the new packages
         return self.from_parts(
             project=project,
             profile=profile,
