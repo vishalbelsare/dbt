@@ -1,4 +1,5 @@
 from copy import deepcopy
+from contextlib import contextmanager
 import json
 import os
 import shutil
@@ -11,6 +12,16 @@ import yaml
 import dbt.config
 from dbt.contracts.connection import PostgresCredentials, RedshiftCredentials
 from dbt.contracts.project import PackageConfig
+
+
+@contextmanager
+def temp_cd(path):
+    current_path = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(current_path)
 
 
 class ConfigTest(unittest.TestCase):
@@ -152,8 +163,8 @@ class BaseConfigTest(unittest.TestCase):
 
 class BaseFileTest(BaseConfigTest):
     def setUp(self):
-        self.project_dir = tempfile.mkdtemp()
-        self.profiles_dir = tempfile.mkdtemp()
+        self.project_dir = os.path.normpath(tempfile.mkdtemp())
+        self.profiles_dir = os.path.normpath(tempfile.mkdtemp())
         super(BaseFileTest, self).setUp()
 
     def tearDown(self):
@@ -690,13 +701,19 @@ class TestRuntimeConfig(BaseConfigTest):
         super(TestRuntimeConfig, self).setUp()
         self.default_project_data['project-root'] = self.project_dir
 
-    def test_from_parts(self):
-        project = dbt.config.Project.from_project_config(
+    def get_project(self):
+        return dbt.config.Project.from_project_config(
             self.default_project_data
         )
-        profile = dbt.config.Profile.from_raw_profiles(
-            self.default_profile_data, project.profile_name
+
+    def get_profile(self):
+        return dbt.config.Profile.from_raw_profiles(
+            self.default_profile_data, self.default_project_data['profile']
         )
+
+    def test_from_parts(self):
+        project = self.get_project()
+        profile = self.get_profile()
         config = dbt.config.RuntimeConfig.from_parts(project, profile, {})
 
         self.assertEqual(config.cli_vars, {})
@@ -710,6 +727,54 @@ class TestRuntimeConfig(BaseConfigTest):
         expected_project['quoting'] = {'identifier': True, 'schema': True}
         self.assertEqual(config.to_project_config(), expected_project)
 
+    def test_str(self):
+        project = self.get_project()
+        profile = self.get_profile()
+        config = dbt.config.RuntimeConfig.from_parts(project, profile, {})
+
+        # to make sure nothing terrible happens
+        str(config)
+
+    def test_validate_fails(self):
+        project = self.get_project()
+        profile = self.get_profile()
+        # invalid - must be boolean
+        profile.use_colors = None
+        with self.assertRaises(dbt.config.DbtProjectError):
+            dbt.config.RuntimeConfig.from_parts(project, profile, {})
 
 
+class TestRuntimeConfigFiles(BaseFileTest):
+    def setUp(self):
+        super(TestRuntimeConfigFiles, self).setUp()
+        self.write_profile(self.default_profile_data)
+        self.write_project(self.default_project_data)
+        # and after the fact, add the project root
+        self.default_project_data['project-root'] = self.project_dir
 
+    def test_from_args(self):
+        with temp_cd(self.project_dir):
+            config = dbt.config.RuntimeConfig.from_args(self.args)
+        self.assertEqual(config.project_name, 'my_test_project')
+        self.assertEqual(config.version, '0.0.1')
+        self.assertEqual(config.profile_name, 'default')
+        # on osx, for example, these are not necessarily equal due to /private
+        self.assertTrue(os.path.samefile(config.project_root,
+                                         self.project_dir))
+        self.assertEqual(config.source_paths, ['models'])
+        self.assertEqual(config.macro_paths, ['macros'])
+        self.assertEqual(config.data_paths, ['data'])
+        self.assertEqual(config.test_paths, ['test'])
+        self.assertEqual(config.analysis_paths, [])
+        self.assertEqual(config.docs_paths, ['models'])
+        self.assertEqual(config.target_path, 'target')
+        self.assertEqual(config.clean_targets, ['target'])
+        self.assertEqual(config.log_path, 'logs')
+        self.assertEqual(config.modules_path, 'dbt_modules')
+        self.assertEqual(config.quoting, {'identifier': True, 'schema': True})
+        self.assertEqual(config.models, {})
+        self.assertEqual(config.on_run_start, [])
+        self.assertEqual(config.on_run_end, [])
+        self.assertEqual(config.archive, [])
+        self.assertEqual(config.seeds, {})
+        self.assertEqual(config.packages, PackageConfig(packages=[]))
