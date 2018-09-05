@@ -97,7 +97,7 @@ PROJECT_CONTRACT = {
             'items': {'type': 'string'},
         },
         'profile': {
-            'type': 'string',
+            'type': ['null', 'string'],
         },
         'log-path': {
             'type': 'string',
