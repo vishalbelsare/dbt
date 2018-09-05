@@ -15,6 +15,8 @@ from dbt.contracts.graph.manifest import Manifest
 from dbt.contracts.graph.parsed import ParsedNode, ParsedMacro, ParsedNodePatch
 from dbt.contracts.graph.unparsed import UnparsedNode
 
+from .utils import config_from_parts_or_dicts
+
 def get_os_path(unix_path):
     return os.path.normpath(unix_path)
 
@@ -55,7 +57,7 @@ class ParserTest(unittest.TestCase):
         }
 
 
-        self.root_project_config = RuntimeConfig.from_parts_or_dicts(
+        self.root_project_config = config_from_parts_or_dicts(
             project=root_project,
             profile=profile_data
         )
@@ -67,7 +69,7 @@ class ParserTest(unittest.TestCase):
             'project-root': os.path.abspath('./dbt_modules/snowplow'),
         }
 
-        self.snowplow_project_config = RuntimeConfig.from_parts_or_dicts(
+        self.snowplow_project_config = config_from_parts_or_dicts(
             project=snowplow_project, profile=profile_data
         )
 
@@ -1635,10 +1637,11 @@ class ParserTest(unittest.TestCase):
 
         self.assertTrue(callable(result['macro.root.simple'].generator))
 
+
         self.assertEqual(
             result,
             {
-                'macro.root.simple': {
+                'macro.root.simple': ParsedMacro(**{
                     'name': 'simple',
                     'resource_type': 'macro',
                     'unique_id': 'macro.root.simple',
@@ -1651,7 +1654,7 @@ class ParserTest(unittest.TestCase):
                     'tags': [],
                     'path': 'simple_macro.sql',
                     'raw_sql': macro_file_contents,
-                }
+                })
             }
         )
 
@@ -1674,7 +1677,7 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(
             result,
             {
-                'macro.root.simple': {
+                'macro.root.simple': ParsedMacro(**{
                     'name': 'simple',
                     'resource_type': 'macro',
                     'unique_id': 'macro.root.simple',
@@ -1687,7 +1690,7 @@ class ParserTest(unittest.TestCase):
                     'tags': [],
                     'path': 'simple_macro.sql',
                     'raw_sql': macro_file_contents,
-                }
+                }),
             }
         )
 

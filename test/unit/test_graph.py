@@ -17,6 +17,8 @@ import networkx as nx
 
 from dbt.logger import GLOBAL_LOGGER as logger # noqa
 
+from .utils import config_from_parts_or_dicts
+
 
 class GraphTest(unittest.TestCase):
 
@@ -94,9 +96,7 @@ class GraphTest(unittest.TestCase):
         }
         cfg.update(extra_cfg)
 
-        return dbt.config.RuntimeConfig.from_parts_or_dicts(
-            project=cfg, profile=self.profile
-        )
+        return config_from_parts_or_dicts(project=cfg, profile=self.profile)
 
     def get_compiler(self, project):
         return dbt.compilation.Compiler(project)

@@ -251,7 +251,7 @@ class Project(object):
         if not isinstance(other, self.__class__):
             return False
         return self.to_project_config(with_packages=True) == \
-               other.to_project_config(with_packages=True)
+            other.to_project_config(with_packages=True)
 
     def to_project_config(self, with_packages=False):
         """Return a dict representation of the config that could be written to
@@ -302,6 +302,7 @@ class Project(object):
             the packages file exists and is invalid.
         :returns Project: The project, with defaults populated.
         """
+        project_root = os.path.normpath(project_root)
         project_yaml_filepath = os.path.join(project_root, 'dbt_project.yml')
 
         # get the project.yml contents
@@ -667,7 +668,8 @@ class RuntimeConfig(Project, Profile):
 
         :param profile Profile: A parsed dbt Profile.
         :param project Project: A parsed dbt Project.
-        :param cli_vars dict: A dict of vars, as provided from teh command line.
+        :param cli_vars dict: A dict of vars, as provided from the command
+            line.
         :returns RuntimeConfig: The new configuration.
         """
         quoting = deepcopy(
@@ -705,23 +707,6 @@ class RuntimeConfig(Project, Profile):
             cli_vars=cli_vars
         )
 
-    @classmethod
-    def from_parts_or_dicts(cls, project, profile, packages=None,
-                            cli_vars='{}'):
-        """Only use this for tests!"""
-        if not isinstance(project, Project):
-            project = Project.from_project_config(deepcopy(project), packages)
-        if not isinstance(profile, Profile):
-            profile = Profile.from_raw_profile_info(deepcopy(profile),
-                                                    project.profile_name)
-        if not isinstance(cli_vars, dict):
-            cli_vars = dbt.utils.parse_cli_vars(cli_vars)
-        return cls.from_parts(
-            project=project,
-            profile=profile,
-            cli_vars=cli_vars
-        )
-
     def new_project(self, project_root):
         """Given a new project root, read in its project dictionary, supply the
         existing project's profile info, and create a new project file.
@@ -736,6 +721,7 @@ class RuntimeConfig(Project, Profile):
         profile.validate()
         # load the new project and its packages
         project = Project.from_project_root(project_root)
+
         return self.from_parts(
             project=project,
             profile=profile,
@@ -785,7 +771,6 @@ class RuntimeConfig(Project, Profile):
         profile = Profile.from_args(args, project.profile_name)
 
         cli_vars = dbt.utils.parse_cli_vars(getattr(args, 'vars', '{}'))
-
         return cls.from_parts(
             project=project,
             profile=profile,

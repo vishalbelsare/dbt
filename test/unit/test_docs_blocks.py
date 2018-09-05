@@ -7,6 +7,8 @@ import dbt.utils
 from dbt.parser import docs
 from dbt.contracts.graph.unparsed import UnparsedDocumentationFile
 
+from .utils import config_from_parts_or_dicts
+
 #DocumentationParser
 
 
@@ -80,10 +82,10 @@ class DocumentationParserTest(unittest.TestCase):
             'project-root': '/test_root/test_subdir',
             'quoting': {},
         }
-        self.root_project_config = RuntimeConfig.from_parts_or_dicts(
+        self.root_project_config = config_from_parts_or_dicts(
             project=root_project, profile=profile_data
         )
-        self.subdir_project_config = RuntimeConfig.from_parts_or_dicts(
+        self.subdir_project_config = config_from_parts_or_dicts(
             project=subdir_project, profile=profile_data
         )
 
