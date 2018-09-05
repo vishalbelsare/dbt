@@ -1,3 +1,4 @@
+import dbt.exceptions
 from dbt.api.object import APIObject
 from dbt.contracts.common import named_property
 from dbt.logger import GLOBAL_LOGGER as logger  # noqa
@@ -19,16 +20,9 @@ POSTGRES_CREDENTIALS_CONTRACT = {
             'type': 'string',
         },
         'port': {
-            'oneOf': [
-                {
-                    'type': 'integer',
-                    'minimum': 0,
-                    'maximum': 65535,
-                },
-                {
-                    'type': 'string'
-                },
-            ],
+            'type': 'integer',
+            'minimum': 0,
+            'maximum': 65535,
         },
         'schema': {
             'type': 'string',
@@ -63,16 +57,9 @@ REDSHIFT_CREDENTIALS_CONTRACT = {
             'type': 'string',
         },
         'port': {
-            'oneOf': [
-                {
-                    'type': 'integer',
-                    'minimum': 0,
-                    'maximum': 65535,
-                },
-                {
-                    'type': 'string'
-                },
-            ],
+            'type': 'integer',
+            'minimum': 0,
+            'maximum': 65535,
         },
         'schema': {
             'type': 'string',

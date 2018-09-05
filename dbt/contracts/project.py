@@ -269,6 +269,10 @@ PROFILE_INFO_CONTRACT = {
 }
 
 
+class ProfileConfig(APIObject):
+    SCHEMA = PROFILE_INFO_CONTRACT
+
+
 def _merge_requirements(base, *args):
     required = base[:]
     for arg in args:
@@ -285,6 +289,11 @@ CONFIG_CONTRACT = deep_merge(
             'cli_vars': {
                 'type': 'object',
                 'additionalProperties': True,
+            },
+            # override quoting: both 'identifier' and 'schema' must be
+            # populated
+            'quoting': {
+                'required': ['identifier', 'schema'],
             },
         },
         'required': _merge_requirements(
