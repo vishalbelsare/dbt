@@ -599,7 +599,10 @@ class DefaultAdapter(object):
         if dbt.flags.STRICT_MODE:
             assert isinstance(connection, Connection)
 
-        connection.handle.close()
+        # On windows, sometimes connection handles don't have a close() attr.
+        if hasattr(connection.handle, 'close'):
+            connection.handle.close()
+
         connection.state = 'closed'
 
         return connection
